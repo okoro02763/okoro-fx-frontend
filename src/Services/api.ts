@@ -30,7 +30,6 @@ export const apiService = {
     const response = await api.get(`/price-history/${symbol}/`);
     return response.data;
   },
-
   getTechnicalAnalysis: async (symbol: string): Promise<TechnicalAnalysis> => {
     const response = await api.get(`/technical-analysis/${symbol}/`);
     return response.data;
