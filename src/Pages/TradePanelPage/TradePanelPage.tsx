@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import TradePanel from '../../Components/TradePanel/TradePanel';
-import TradeHistory from '../../Components/TradeHistory/TradeHistory';
+import TradePanel from '../../components/TradePanel/TradePanel';
+import TradeHistory from '../../components/TradeHistory/TradeHistory';
 import { apiService } from '../../Services/api';
 import type { CurrencyPair } from '../../types';
 

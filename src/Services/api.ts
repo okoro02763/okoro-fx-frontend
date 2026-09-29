@@ -4,14 +4,27 @@ import type {
   Trade, PortfolioSummary, TradeRequest,
   DerivStatus, AccountInfo
 } from '../types';
+import { getToken } from '../api/token';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://forex-trader-backend-production.up.railway.app/api';
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// The trading endpoints (place/close/list trades, portfolio, account info)
+// require authentication. Without this header they answer 401.
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export const apiService = {

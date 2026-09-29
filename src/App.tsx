@@ -1,55 +1,89 @@
-import React, { useState } from 'react';
-import ForexDashboard from './Components/ForexDashboard/ForexDashboard';
-import TradePanel from './Components/TradePanel/TradePanel';
-import TradeHistory from './Components/TradeHistory/TradeHistory';
-import DerivStatusPanel from './Components/DerivStatus/DerivStatus';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './routes/ProtectedRoute';
+import AdminRoute from './routes/AdminRoute';
+import LoginPage from './Pages/LoginPage';
+import SignUpPage from './Pages/SignUpPage';
+import ForgotPasswordPage from './Pages/ForgotPasswordPage';
+import ResetPasswordPage from './Pages/ResetPasswordPage';
+import DashboardPage from './Pages/DashboardPage';
+import StrategySettingsPage from './Pages/StrategySettingsPage';
+import AnalyticsPage from './Pages/AnalyticsPage';
+import ReferralsPage from './Pages/ReferralsPage';
+import AdminPage from './Pages/AdminPage';
+import FraudPage from './Pages/FraudPage';
+import AccountPage from './Pages/AccountPage';
 
 function App() {
-  const [selectedPair, setSelectedPair] = useState<string>('EURUSD');
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
-
-  const handleTradeExecuted = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
   return (
-    <div className="container">
-      <header style={{ marginBottom: '30px', textAlign: 'center' }}>
-        <h1 style={{ color: '#333', marginBottom: '10px' }}>
-          Forex Trading Platform
-        </h1>
-        <p style={{ color: '#666', fontSize: '16px' }}>
-          Real-time forex trading powered by Deriv API
-        </p>
-      </header>
-
-      {/* Deriv Status Panel */}
-      <div style={{ marginBottom: '20px' }}>
-        <DerivStatusPanel />
-      </div>
-
-      <div className="grid">
-        <div style={{ gridColumn: 'span 2' }}>
-          <ForexDashboard 
-            selectedPair={selectedPair} 
-            onPairSelect={setSelectedPair}
-            refreshTrigger={refreshTrigger}
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
           />
-        </div>
-        
-        <div>
-          <TradePanel 
-            selectedPair={selectedPair}
-            onTradeExecuted={handleTradeExecuted}
+          <Route
+            path="/settings/strategy"
+            element={
+              <ProtectedRoute>
+                <StrategySettingsPage />
+              </ProtectedRoute>
+            }
           />
-        </div>
-        
-      </div>
-
-      <div style={{ marginTop: '30px' }}>
-        <TradeHistory refreshTrigger={refreshTrigger} />
-      </div>
-    </div>
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/referrals"
+            element={
+              <ProtectedRoute>
+                <ReferralsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <AccountPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/fraud"
+            element={
+              <AdminRoute>
+                <FraudPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

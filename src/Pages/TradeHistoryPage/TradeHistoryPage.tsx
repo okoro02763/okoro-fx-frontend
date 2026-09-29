@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import TradeHistory from '../../Components/TradeHistory/TradeHistory';
+import TradeHistory from '../../components/TradeHistory/TradeHistory';
 
 const TradeHistoryPage: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
