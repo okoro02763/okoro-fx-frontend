@@ -1,5 +1,5 @@
-export const TOKEN_KEY = 'fxpilot_token';
-export const USER_KEY = 'fxpilot_user';
+export const TOKEN_KEY = 'okoro_token';
+export const USER_KEY = 'okoro_user';
 
 export function getToken(): string | null {
   try {

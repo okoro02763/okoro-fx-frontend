@@ -7,6 +7,7 @@ import AuthShell, {
 import Field, { inputStyle } from '../components/Field';
 import { login as apiLogin } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
+import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
 
 const LIVE_PAIRS = [
   { pair: 'EUR/USD', bid: 1.08412, ask: 1.08418, chg: 0.12 },
@@ -96,9 +97,22 @@ export default function LoginPage() {
                 color: 'var(--text)',
               }}
             >
-              FXPilot
+              {BRAND_NAME}
             </span>
           </div>
+          <p
+            style={{
+              fontFamily: 'Inter',
+              fontSize: '11px',
+              fontWeight: 500,
+              color: 'var(--sub)',
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              margin: '6px 0 0',
+            }}
+          >
+            {BRAND_TAGLINE}
+          </p>
           <p
             style={{
               fontFamily: 'Inter',
@@ -164,7 +178,7 @@ export default function LoginPage() {
         {/* Sign in form */}
         <AuthShell
           title="Welcome back"
-          subtitle="Sign in to your FXPilot account"
+          subtitle={`Sign in to your ${BRAND_NAME} account`}
           footer={
             <>
               Don't have an account? <AuthLink to="/signup">Create one</AuthLink>

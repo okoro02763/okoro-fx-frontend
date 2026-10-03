@@ -4,6 +4,7 @@ import Card from '../components/Card';
 import StatCard from '../components/StatCard';
 import { useAuth } from '../context/AuthContext';
 import { getReferrals, type ReferralsInfo } from '../api/referral';
+import { BRAND_NAME } from '../brand';
 
 function mockReferrals(): ReferralsInfo {
   return {
@@ -68,7 +69,7 @@ export default function ReferralsPage() {
       <div style={{ marginBottom: '20px' }}>
         <Card title="Share your referral">
           <p style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--sub)', marginTop: 0 }}>
-            Invite friends to FXPilot. You both get a reward when they sign up
+            Invite friends to {BRAND_NAME}. You both get a reward when they sign up
             using your link.
           </p>
           <div

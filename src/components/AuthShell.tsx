@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
 
 interface AuthShellProps {
   title: string;
@@ -54,9 +55,24 @@ export default function AuthShell({
               letterSpacing: '0.02em',
             }}
           >
-            FXPilot
+            {BRAND_NAME}
           </span>
         </div>
+
+        <p
+          style={{
+            fontFamily: 'Inter',
+            fontSize: '12px',
+            fontWeight: 500,
+            color: 'var(--sub)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            textAlign: 'center',
+            margin: '-20px 0 24px',
+          }}
+        >
+          {BRAND_TAGLINE}
+        </p>
 
         <div
           style={{

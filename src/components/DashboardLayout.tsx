@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -55,15 +56,29 @@ export default function DashboardLayout({
               transform: 'rotate(45deg)',
             }}
           />
-          <span
-            style={{
-              fontFamily: 'Space Grotesk',
-              fontSize: '18px',
-              fontWeight: 700,
-              color: 'var(--text)',
-            }}
-          >
-            FXPilot
+          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+            <span
+              style={{
+                fontFamily: 'Space Grotesk',
+                fontSize: '18px',
+                fontWeight: 700,
+                color: 'var(--text)',
+              }}
+            >
+              {BRAND_NAME}
+            </span>
+            <span
+              style={{
+                fontFamily: 'Inter',
+                fontSize: '10px',
+                fontWeight: 500,
+                color: 'var(--sub)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {BRAND_TAGLINE}
+            </span>
           </span>
         </div>
 
