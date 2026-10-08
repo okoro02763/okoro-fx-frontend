@@ -16,107 +16,35 @@ export default function AuthShell({
   footer,
 }: AuthShellProps) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
-        background:
-          'radial-gradient(1200px 600px at 20% -10%, rgba(232,180,84,0.06), transparent), var(--bg)',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: '420px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            marginBottom: '28px',
-          }}
-        >
+    <div className="order-1 box-border flex min-h-screen w-full min-w-0 flex-1 items-center justify-center overflow-x-hidden bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(232,180,84,0.06),transparent)] p-5 sm:p-6 md:order-2">
+      <div className="mx-auto w-full max-w-[420px]">
+        <div className="mb-7 flex items-center justify-center gap-2.5">
           <span
-            style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--gold)',
-              transform: 'rotate(45deg)',
-            }}
+            className="h-3 w-3 rotate-45 rounded-[4px] bg-[#E8B454]"
+            aria-hidden="true"
           />
-          <span
-            style={{
-              fontFamily: 'Space Grotesk',
-              fontSize: '22px',
-              fontWeight: 700,
-              color: 'var(--text)',
-              letterSpacing: '0.02em',
-            }}
-          >
+          <span className="font-display text-[22px] font-bold tracking-[0.02em] text-[#EDEEF5]">
             {BRAND_NAME}
           </span>
         </div>
 
-        <p
-          style={{
-            fontFamily: 'Inter',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--sub)',
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            textAlign: 'center',
-            margin: '-20px 0 24px',
-          }}
-        >
+        <p className="-mt-5 mb-6 text-center text-xs font-medium uppercase tracking-[0.06em] text-[#868CA8]">
           {BRAND_TAGLINE}
         </p>
 
-        <div
-          style={{
-            backgroundColor: 'var(--panel)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-card)',
-            padding: '28px',
-          }}
-        >
-          <h1
-            style={{
-              fontFamily: 'Space Grotesk',
-              fontSize: '20px',
-              fontWeight: 600,
-              color: 'var(--text)',
-              marginBottom: '6px',
-            }}
-          >
+        <div className="box-border w-full rounded-[14px] border border-[#272C47] bg-[#151829] p-5 sm:p-7">
+          <h1 className="font-display text-2xl font-semibold text-[#EDEEF5] md:text-3xl">
             {title}
           </h1>
           {subtitle && (
-            <p
-              style={{
-                fontFamily: 'Inter',
-                fontSize: '13px',
-                color: 'var(--sub)',
-                margin: '0 0 20px',
-              }}
-            >
+            <p className="mb-5 mt-1.5 text-[13px] leading-snug text-[#868CA8]">
               {subtitle}
             </p>
           )}
           {children}
         </div>
 
-        <p
-          style={{
-            fontFamily: 'Inter',
-            fontSize: '13px',
-            color: 'var(--sub)',
-            textAlign: 'center',
-            marginTop: '20px',
-          }}
-        >
+        <p className="mt-5 text-center text-[13px] leading-relaxed text-[#868CA8]">
           {footer}
         </p>
       </div>
@@ -129,31 +57,22 @@ export function AuthLink({
   children,
   onClick,
 }: {
-  to: string;
+  to?: string;
   children: React.ReactNode;
   onClick?: () => void;
 }) {
-  const base = {
-    family: 'Inter',
-    fontSize: '13px',
-    fontWeight: 600,
-    color: 'var(--gold)',
-    textDecoration: 'none',
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-  } as const;
+  const cls =
+    'cursor-pointer bg-none p-0 text-[13px] font-semibold text-[#E8B454] no-underline';
 
   if (onClick) {
     return (
-      <button type="button" style={base} onClick={onClick}>
+      <button type="button" className={cls} onClick={onClick}>
         {children}
       </button>
     );
   }
   return (
-    <Link to={to} style={base}>
+    <Link to={to || '/'} className={cls}>
       {children}
     </Link>
   );

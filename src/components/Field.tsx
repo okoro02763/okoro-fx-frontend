@@ -51,7 +51,8 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 'var(--radius-input)',
   color: 'var(--text)',
   fontFamily: 'JetBrains Mono',
-  fontSize: '14px',
+  fontSize: '16px',
+  lineHeight: 1.4,
   outline: 'none',
   transition: 'border-color 0.15s ease',
 };

@@ -51,122 +51,45 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fp-root">
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(300px, 360px) 1fr',
-          background:
-            'radial-gradient(1200px 600px at 20% -10%, rgba(232,180,84,0.06), transparent), var(--bg)',
-        }}
-      >
+    <div className="fp-root box-border w-full overflow-x-hidden">
+      <div className="flex min-h-screen w-full flex-col bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(232,180,84,0.06),transparent)] md:flex-row">
         {/* Live pairs ticker sidebar */}
-        <aside
-          style={{
-            borderRight: '1px solid var(--border)',
-            padding: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-            alignSelf: 'stretch',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              marginBottom: '8px',
-            }}
-          >
+        <aside className="order-2 box-border hidden w-full shrink-0 flex-col gap-3.5 self-stretch border-t border-[#272C47] p-6 sm:flex md:order-1 md:w-[360px] md:border-r md:border-t-0">
+          <div className="mb-2 flex items-center gap-2.5">
             <span
-              style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '4px',
-                backgroundColor: 'var(--gold)',
-                transform: 'rotate(45deg)',
-              }}
+              className="h-3 w-3 rotate-45 rounded-[4px] bg-[#E8B454]"
+              aria-hidden="true"
             />
-            <span
-              style={{
-                fontFamily: 'Space Grotesk',
-                fontSize: '20px',
-                fontWeight: 700,
-                color: 'var(--text)',
-              }}
-            >
+            <span className="font-display text-xl font-bold text-[#EDEEF5]">
               {BRAND_NAME}
             </span>
           </div>
-          <p
-            style={{
-              fontFamily: 'Inter',
-              fontSize: '11px',
-              fontWeight: 500,
-              color: 'var(--sub)',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              margin: '6px 0 0',
-            }}
-          >
+          <p className="m-0 text-[11px] font-medium uppercase tracking-[0.06em] text-[#868CA8]">
             {BRAND_TAGLINE}
           </p>
-          <p
-            style={{
-              fontFamily: 'Inter',
-              fontSize: '12px',
-              fontWeight: 500,
-              color: 'var(--sub)',
-              margin: '0 0 6px',
-            }}
-          >
+          <p className="mb-1.5 mt-1.5 text-xs font-medium text-[#868CA8]">
             LIVE MARKETS
           </p>
           {LIVE_PAIRS.map((p) => (
             <div
               key={p.pair}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                backgroundColor: 'var(--panel)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-input)',
-              }}
+              className="box-border flex items-center justify-between gap-3 rounded-[10px] border border-[#272C47] bg-[#151829] px-3.5 py-3"
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span
-                  style={{
-                    fontFamily: 'Space Grotesk',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--text)',
-                  }}
-                >
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="font-display text-sm font-semibold text-[#EDEEF5]">
                   {p.pair}
                 </span>
                 <span
                   data-mono
-                  style={{
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: '13px',
-                    color: 'var(--sub)',
-                  }}
+                  className="whitespace-nowrap font-mono text-sm text-[#868CA8]"
                 >
                   {p.bid} / {p.ask}
                 </span>
               </div>
               <span
                 data-mono
-                style={{
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: p.chg >= 0 ? 'var(--profit)' : 'var(--loss)',
-                }}
+                className="whitespace-nowrap font-mono text-sm font-medium"
+                style={{ color: p.chg >= 0 ? 'var(--profit)' : 'var(--loss)' }}
               >
                 {p.chg >= 0 ? '+' : ''}
                 {p.chg.toFixed(2)}%

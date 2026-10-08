@@ -15,6 +15,7 @@ export default function Card({ children, title, style, bodyStyle }: CardProps) {
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-card)',
         padding: '20px',
+        overflowX: 'auto',
         ...style,
       }}
     >
