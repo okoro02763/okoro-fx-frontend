@@ -53,6 +53,18 @@ export function signup(
   });
 }
 
+export interface ReferralValidation {
+  valid: boolean;
+  referrer?: string;
+}
+
+// TODO: confirm against real backend
+export function validateReferral(code: string): Promise<ReferralValidation> {
+  return request<ReferralValidation>(
+    `/auth/validate-referral?code=${encodeURIComponent(code)}`
+  );
+}
+
 // TODO: confirm against real backend
 export function forgotPassword(email: string): Promise<MessageResponse> {
   return request<MessageResponse>('/auth/forgot-password', {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AuthShell, { AuthLink, PrimaryButton } from '../components/AuthShell';
 import Field, { inputStyle } from '../components/Field';
-import { signup } from '../api/auth';
+import { signup, validateReferral } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 
 function strengthColor(score: number) {
@@ -34,8 +34,32 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [referralStatus, setReferralStatus] = useState<
+    'idle' | 'checking' | 'valid' | 'invalid'
+  >('idle');
+  const [referrerName, setReferrerName] = useState<string | null>(null);
 
   const strength = computeStrength(password);
+
+  const checkReferral = async (): Promise<boolean> => {
+    const code = referralCode.trim();
+    if (!code) {
+      setReferralStatus('idle');
+      setReferrerName(null);
+      return true;
+    }
+    setReferralStatus('checking');
+    try {
+      const res = await validateReferral(code);
+      setReferralStatus(res.valid ? 'valid' : 'invalid');
+      setReferrerName(res.valid ? res.referrer || null : null);
+      return res.valid;
+    } catch {
+      // Network error: don't block, the server re-validates on submit.
+      setReferralStatus('idle');
+      return true;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +67,10 @@ export default function SignUpPage() {
     setInfo(null);
     setLoading(true);
     try {
+      if (!(await checkReferral())) {
+        setError('Invalid referral code.');
+        return;
+      }
       const res = await signup(
         name,
         email,
@@ -107,10 +135,32 @@ export default function SignUpPage() {
             <input
               type="text"
               value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setReferralCode(e.target.value.toUpperCase());
+                setReferralStatus('idle');
+                setReferrerName(null);
+              }}
+              onBlur={() => {
+                void checkReferral();
+              }}
               placeholder="e.g. ABCD1234"
               style={{ ...inputStyle, fontFamily: 'JetBrains Mono' }}
             />
+            {referralStatus === 'checking' && (
+              <p style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--muted)', margin: '4px 0 0' }}>
+                Checking code…
+              </p>
+            )}
+            {referralStatus === 'valid' && (
+              <p style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--profit)', margin: '4px 0 0' }}>
+                Valid code{referrerName ? ` — invited by ${referrerName}` : ''}.
+              </p>
+            )}
+            {referralStatus === 'invalid' && (
+              <p style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--loss)', margin: '4px 0 0' }}>
+                Invalid referral code.
+              </p>
+            )}
           </Field>
           <Field label="Password" hint="At least 8 characters with a mix of cases, numbers and symbols.">
             <input
