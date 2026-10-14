@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
+import { BRAND_NAME } from '../brand';
 
 interface AuthShellProps {
   title: string;
@@ -18,19 +18,13 @@ export default function AuthShell({
   return (
     <div className="order-1 box-border flex min-h-screen w-full min-w-0 flex-1 items-center justify-center overflow-x-hidden bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(232,180,84,0.06),transparent)] p-5 sm:p-6 md:order-2">
       <div className="mx-auto w-full max-w-[420px]">
-        <div className="mb-7 flex items-center justify-center gap-2.5">
-          <span
-            className="h-3 w-3 rotate-45 rounded-[4px] bg-[#E8B454]"
-            aria-hidden="true"
+        <div className="mb-7 flex items-center justify-center">
+          <img
+            src="/OKORO%20FX%20Trading%20Brand%20Identity.png"
+            alt={BRAND_NAME}
+            className="block h-[52px] w-auto"
           />
-          <span className="font-display text-[22px] font-bold tracking-[0.02em] text-[#EDEEF5]">
-            {BRAND_NAME}
-          </span>
         </div>
-
-        <p className="-mt-5 mb-6 text-center text-xs font-medium uppercase tracking-[0.06em] text-[#868CA8]">
-          {BRAND_TAGLINE}
-        </p>
 
         <div className="box-border w-full rounded-[14px] border border-[#272C47] bg-[#151829] p-5 sm:p-7">
           <h1 className="font-display text-2xl font-semibold text-[#EDEEF5] md:text-3xl">

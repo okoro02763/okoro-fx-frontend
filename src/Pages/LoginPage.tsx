@@ -7,7 +7,7 @@ import AuthShell, {
 import Field, { inputStyle } from '../components/Field';
 import { login as apiLogin } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
-import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
+import { BRAND_NAME } from '../brand';
 
 const LIVE_PAIRS = [
   { pair: 'EUR/USD', bid: 1.08412, ask: 1.08418, chg: 0.12 },
@@ -56,17 +56,12 @@ export default function LoginPage() {
         {/* Live pairs ticker sidebar */}
         <aside className="order-2 box-border hidden w-full shrink-0 flex-col gap-3.5 self-stretch border-t border-[#272C47] p-6 sm:flex md:order-1 md:w-[360px] md:border-r md:border-t-0">
           <div className="mb-2 flex items-center gap-2.5">
-            <span
-              className="h-3 w-3 rotate-45 rounded-[4px] bg-[#E8B454]"
-              aria-hidden="true"
+            <img
+              src="/OKORO%20FX%20Trading%20Brand%20Identity.png"
+              alt={BRAND_NAME}
+              className="block h-9 w-auto"
             />
-            <span className="font-display text-xl font-bold text-[#EDEEF5]">
-              {BRAND_NAME}
-            </span>
           </div>
-          <p className="m-0 text-[11px] font-medium uppercase tracking-[0.06em] text-[#868CA8]">
-            {BRAND_TAGLINE}
-          </p>
           <p className="mb-1.5 mt-1.5 text-xs font-medium text-[#868CA8]">
             LIVE MARKETS
           </p>

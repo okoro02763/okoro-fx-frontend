@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BRAND_NAME, BRAND_TAGLINE } from '../brand';
+import { BRAND_NAME } from '../brand';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -47,39 +47,11 @@ export default function DashboardLayout({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span
-            style={{
-              width: '11px',
-              height: '11px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--gold)',
-              transform: 'rotate(45deg)',
-            }}
+          <img
+            src="/OKORO%20FX%20Trading%20Brand%20Identity.png"
+            alt={BRAND_NAME}
+            style={{ height: 40, width: 'auto', display: 'block' }}
           />
-          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-            <span
-              style={{
-                fontFamily: 'Space Grotesk',
-                fontSize: '18px',
-                fontWeight: 700,
-                color: 'var(--text)',
-              }}
-            >
-              {BRAND_NAME}
-            </span>
-            <span
-              style={{
-                fontFamily: 'Inter',
-                fontSize: '10px',
-                fontWeight: 500,
-                color: 'var(--sub)',
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {BRAND_TAGLINE}
-            </span>
-          </span>
         </div>
 
         <nav style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
