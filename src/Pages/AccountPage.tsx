@@ -175,7 +175,7 @@ export default function AccountPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -205,7 +205,7 @@ export default function AccountPage() {
 
       {tab === 'overview' && (
         <Card title="Account & Verification">
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
             {(['demo', 'live'] as AccountType[]).map((t) => (
               <button
                 key={t}
@@ -362,7 +362,7 @@ export default function AccountPage() {
               <h4 style={{ fontFamily: 'Space Grotesk', fontSize: '14px', color: 'var(--text)', margin: '0 0 12px' }}>
                 Withdrawal history
               </h4>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', minWidth: '480px', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Amount', 'Fee', 'Net', 'Status', 'Date'].map((h) => (

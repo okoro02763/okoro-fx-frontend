@@ -55,7 +55,7 @@ export default function ReferralsPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -151,7 +151,7 @@ export default function ReferralsPage() {
             You haven't referred anyone yet. Share your link to get started.
           </p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '480px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Name', 'Email', 'Your Reward', 'Joined'].map((h) => (

@@ -22,11 +22,11 @@ export default function StatCard({
 
   return (
     <div
+      className="px-4 py-4 sm:px-5 sm:py-[18px]"
       style={{
         backgroundColor: 'var(--panel)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-card)',
-        padding: '18px 20px',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -42,9 +42,9 @@ export default function StatCard({
         }}
       >
         <span
+          className="text-[11px] sm:text-xs"
           style={{
             fontFamily: 'Inter',
-            fontSize: '12px',
             fontWeight: 500,
             color: 'var(--sub)',
           }}
@@ -58,13 +58,14 @@ export default function StatCard({
           display: 'flex',
           alignItems: 'baseline',
           gap: '8px',
+          flexWrap: 'wrap',
         }}
       >
         <span
           data-mono
+          className="text-[20px] sm:text-[26px]"
           style={{
             fontFamily: 'JetBrains Mono',
-            fontSize: '26px',
             fontWeight: 700,
             color: 'var(--text)',
             lineHeight: 1,

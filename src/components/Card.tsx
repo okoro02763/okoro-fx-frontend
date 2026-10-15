@@ -10,11 +10,11 @@ interface CardProps {
 export default function Card({ children, title, style, bodyStyle }: CardProps) {
   return (
     <div
+      className="p-4 sm:p-5"
       style={{
         backgroundColor: 'var(--panel)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--radius-card)',
-        padding: '20px',
         overflowX: 'auto',
         ...style,
       }}

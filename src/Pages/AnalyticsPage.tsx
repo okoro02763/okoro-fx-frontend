@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -107,7 +107,7 @@ export default function AnalyticsPage() {
         }}
       >
         <Card title="P&L by Pair ($)">
-          <div style={{ height: '300px' }}>
+          <div className="h-[240px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={summary.profitByPair}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
         </Card>
 
         <Card title="Daily P&L ($)">
-          <div style={{ height: '300px' }}>
+          <div className="h-[240px] sm:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={summary.dailyPnl}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -174,7 +174,7 @@ export default function AnalyticsPage() {
       </div>
 
       <Card title="Performance (Equity)">
-        <div style={{ height: '300px' }}>
+        <div className="h-[240px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={equityData}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />

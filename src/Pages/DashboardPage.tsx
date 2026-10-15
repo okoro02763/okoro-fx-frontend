@@ -143,7 +143,7 @@ export default function DashboardPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -155,11 +155,8 @@ export default function DashboardPage() {
       </div>
 
       <div
+        className="flex flex-wrap items-center justify-between gap-4"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
           backgroundColor: 'var(--panel)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-card)',
@@ -234,7 +231,7 @@ export default function DashboardPage() {
               Live updates unavailable — showing the last known data.
             </p>
           )}
-          <div style={{ height: '280px' }}>
+          <div className="h-[220px] sm:h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={equity}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
@@ -301,7 +298,7 @@ export default function DashboardPage() {
         }}
       >
         <Card title="Open Positions">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '360px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Pair', 'Type', 'Lots', 'Entry', 'P&L'].map((h) => (
@@ -339,7 +336,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card title="Recent Fills">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', minWidth: '360px', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 {['Pair', 'Type', 'Price', 'P&L', 'Time'].map((h) => (

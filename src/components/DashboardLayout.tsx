@@ -22,7 +22,6 @@ export default function DashboardLayout({
 
   const navLinkStyle: React.CSSProperties = {
     fontFamily: 'Inter',
-    fontSize: '14px',
     fontWeight: 500,
     color: 'var(--sub)',
     textDecoration: 'none',
@@ -37,58 +36,82 @@ export default function DashboardLayout({
       }}
     >
       <header
+        className="flex flex-col gap-3 px-4 py-3.5 md:flex-row md:items-center md:justify-between md:px-7 md:py-[18px]"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '18px 28px',
           borderBottom: '1px solid var(--border)',
           backgroundColor: 'var(--panel)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="flex items-center gap-2.5">
           <img
             src="/OKORO%20FX%20Trading%20Brand%20Identity.png"
             alt={BRAND_NAME}
-            style={{ height: 40, width: 'auto', display: 'block' }}
+            className="block h-9 w-auto md:h-10"
           />
         </div>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <Link to="/" style={navLinkStyle}>
+        <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 md:justify-end md:gap-5">
+          <Link to="/" className="text-[13px] md:text-sm" style={navLinkStyle}>
             Dashboard
           </Link>
-          <Link to="/settings/strategy" style={navLinkStyle}>
+          <Link
+            to="/settings/strategy"
+            className="text-[13px] md:text-sm"
+            style={navLinkStyle}
+          >
             Strategy
           </Link>
-          <Link to="/analytics" style={navLinkStyle}>
+          <Link
+            to="/analytics"
+            className="text-[13px] md:text-sm"
+            style={navLinkStyle}
+          >
             Analytics
           </Link>
-          <Link to="/referrals" style={navLinkStyle}>
+          <Link
+            to="/referrals"
+            className="text-[13px] md:text-sm"
+            style={navLinkStyle}
+          >
             Referrals
           </Link>
-          <Link to="/account" style={navLinkStyle}>
+          <Link
+            to="/account"
+            className="text-[13px] md:text-sm"
+            style={navLinkStyle}
+          >
             Account
           </Link>
           {isAdmin && (
             <>
-              <Link to="/admin" style={navLinkStyle}>
+              <Link
+                to="/admin"
+                className="text-[13px] md:text-sm"
+                style={navLinkStyle}
+              >
                 Admin
               </Link>
-              <Link to="/fraud" style={navLinkStyle}>
+              <Link
+                to="/fraud"
+                className="text-[13px] md:text-sm"
+                style={navLinkStyle}
+              >
                 Fraud
               </Link>
             </>
           )}
-          <span style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--sub)' }}>
+          <span
+            className="text-[13px] break-all"
+            style={{ fontFamily: 'Inter', color: 'var(--sub)' }}
+          >
             {user?.name || user?.email || ''}
           </span>
           <button
             type="button"
             onClick={handleLogout}
+            className="text-[13px]"
             style={{
               fontFamily: 'Inter',
-              fontSize: '13px',
               fontWeight: 600,
               color: 'var(--loss)',
               background: 'none',
@@ -103,7 +126,7 @@ export default function DashboardLayout({
         </nav>
       </header>
 
-      <main style={{ padding: '28px', maxWidth: '1200px', margin: '0 auto' }}>
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-5 md:px-7 md:py-7">
         {title && (
           <h1
             style={{

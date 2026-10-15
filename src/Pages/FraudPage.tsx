@@ -53,7 +53,7 @@ export default function FraudPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -102,7 +102,7 @@ export default function FraudPage() {
       </div>
 
       <Card title={`Fraud Risk Rankings`}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', minWidth: '560px', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
               {['User', 'Risk Score', 'Level', 'Indicators'].map((h) => (

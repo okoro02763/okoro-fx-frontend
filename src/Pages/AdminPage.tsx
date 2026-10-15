@@ -163,7 +163,7 @@ export default function AdminPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -511,7 +511,7 @@ export default function AdminPage() {
               No audit entries yet.
             </p>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', minWidth: '520px', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Time', 'Actor', 'Action', 'Target'].map((h) => (
