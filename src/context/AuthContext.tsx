@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from 'react';
 import type { User } from '../api/auth';
 import { getMe } from '../api/auth';
@@ -74,6 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [token]);
+
+  // Re-sync the cached user (role/status) with the server on load, so a
+  // stale localStorage copy can never keep showing admin-only UI after a
+  // role change or a login as a different account.
+  const refreshedOnMount = useRef(false);
+  useEffect(() => {
+    if (refreshedOnMount.current) return;
+    refreshedOnMount.current = true;
+    void refreshUser();
+  }, [refreshUser]);
 
   return (
     <AuthContext.Provider
