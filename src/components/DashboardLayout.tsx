@@ -55,6 +55,13 @@ export default function DashboardLayout({
             Dashboard
           </Link>
           <Link
+            to="/terminal"
+            className="text-[13px] md:text-sm"
+            style={navLinkStyle}
+          >
+            Terminal
+          </Link>
+          <Link
             to="/settings/strategy"
             className="text-[13px] md:text-sm"
             style={navLinkStyle}
