@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
+  Briefcase,
   HelpCircle,
   ListOrdered,
   MoreHorizontal,
@@ -23,6 +24,7 @@ import PriceChart from '../components/terminal/PriceChart';
 import ChartToolbar from '../components/terminal/ChartToolbar';
 import TradePanel from '../components/terminal/TradePanel';
 import TradesPanel from '../components/terminal/TradesPanel';
+import TradesDrawer from '../components/terminal/TradesDrawer';
 import PairSelectorModal from '../components/terminal/PairSelectorModal';
 
 type Tab = 'chart' | 'trades' | 'help' | 'profile' | 'more';
@@ -73,6 +75,7 @@ export default function TerminalPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [tradesLoading, setTradesLoading] = useState(true);
   const [pairModalOpen, setPairModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -204,6 +207,7 @@ export default function TerminalPage() {
   const change = quote?.percent_change ?? 0;
   const changeColor = change >= 0 ? 'var(--profit)' : 'var(--loss)';
   const payoutPercent = quote?.payout_percent ?? 80;
+  const openTradeCount = trades.filter((t) => t.status === 'open').length;
 
   return (
     <div className="fp-root flex h-[100dvh] flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
@@ -289,7 +293,29 @@ export default function TerminalPage() {
                 chartType={chartType}
                 intervalSeconds={timeframe.seconds}
                 tick={quote}
+                trades={trades}
+                now={now}
               />
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open trades"
+                className="absolute bottom-4 left-2 z-20 flex h-10 w-10 items-center justify-center rounded-full shadow-xl"
+                style={{
+                  backgroundColor: 'var(--panel2)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <Briefcase size={17} color="var(--gold)" />
+                {openTradeCount > 0 && (
+                  <span
+                    className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                    style={{ backgroundColor: 'var(--gold)', color: 'var(--bg)' }}
+                  >
+                    {openTradeCount}
+                  </span>
+                )}
+              </button>
               {candlesLoading && candles.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: 'var(--sub)' }}>
                   Loading chart…
@@ -420,6 +446,13 @@ export default function TerminalPage() {
           setSymbol(next);
           setPairModalOpen(false);
         }}
+      />
+
+      <TradesDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        trades={trades}
+        now={now}
       />
     </div>
   );

@@ -31,3 +31,13 @@ export function formatCountdown(totalSeconds: number): string {
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
 }
+
+/** Clock time as HH:MM (local), used for trade open/expiry labels. */
+export function formatClock(value: number | string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return `${d.getHours().toString().padStart(2, '0')}:${d
+    .getMinutes()
+    .toString()
+    .padStart(2, '0')}`;
+}
