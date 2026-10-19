@@ -13,6 +13,27 @@ export function formatPrice(price: number): string {
   });
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+});
+
+/**
+ * Format a wallet balance as currency.
+ *
+ * Defensive on purpose: the backend may send the balance as a number, a
+ * numeric string, or (historically) nothing at all -- and printing a raw
+ * fallback like "NO" was exactly the bug this replaces. Anything that is not
+ * a finite number renders as $0.00.
+ */
+export function formatCurrency(value: unknown): string {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) {
+    return currencyFormatter.format(0);
+  }
+  return currencyFormatter.format(n);
+}
+
 export function formatMoney(value: number): string {
   return `$${value.toLocaleString(undefined, {
     minimumFractionDigits: 2,

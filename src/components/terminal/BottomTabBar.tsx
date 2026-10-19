@@ -16,6 +16,16 @@ const ITEMS: { key: TabKey; label: string; icon: typeof BarChart3 }[] = [
   { key: 'more', label: 'More', icon: MoreHorizontal },
 ];
 
+// Explicit dark-theme colours so the bar never falls back to a light
+// browser default when the CSS variables are out of scope.
+const BAR_BG = '#151a2e';
+const BAR_BORDER = '#262c48';
+const MUTED = '#8a90a8';
+const ACTIVE = '#2b8cff'; // terminal accent colour
+
+/** Height of the bar's content (icon + label + padding), excluding safe area. */
+export const TAB_BAR_HEIGHT = 52;
+
 interface BottomTabBarProps {
   active: TabKey;
   onChange: (tab: TabKey) => void;
@@ -31,26 +41,32 @@ export default function BottomTabBar({
 }: BottomTabBarProps) {
   return (
     <nav
-      className="kt-safe-bottom flex shrink-0 items-stretch"
-      style={{ backgroundColor: 'var(--panel)', borderTop: '1px solid var(--border)' }}
+      className="fixed inset-x-0 bottom-0 z-[100] flex items-stretch"
+      style={{
+        backgroundColor: BAR_BG,
+        borderTop: `1px solid ${BAR_BORDER}`,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     >
       {ITEMS.map(({ key, label, icon: Icon }) => {
         const isActive = key === active;
         const badge =
           key === 'trophy' ? trophyBadge : key === 'more' ? moreBadge : 0;
+        const color = isActive ? ACTIVE : MUTED;
         return (
           <button
             key={key}
             type="button"
             onClick={() => onChange(key)}
-            className="relative flex flex-1 flex-col items-center gap-0.5 py-2"
+            className="relative flex flex-1 flex-col items-center justify-center gap-0.5"
+            style={{ height: TAB_BAR_HEIGHT }}
           >
             <span className="relative">
-              <Icon size={19} color={isActive ? 'var(--blue)' : 'var(--muted)'} />
+              <Icon size={19} color={color} />
               {badge > 0 && (
                 <span
                   className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
-                  style={{ backgroundColor: 'var(--red)' }}
+                  style={{ backgroundColor: 'var(--red, #ef4b3a)' }}
                 >
                   {badge}
                 </span>
@@ -58,7 +74,7 @@ export default function BottomTabBar({
             </span>
             <span
               className="text-[10px] font-medium"
-              style={{ color: isActive ? 'var(--blue)' : 'var(--muted)' }}
+              style={{ color }}
             >
               {label}
             </span>

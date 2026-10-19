@@ -14,6 +14,7 @@ import ReferralsPage from './Pages/ReferralsPage';
 import AdminPage from './Pages/AdminPage';
 import FraudPage from './Pages/FraudPage';
 import AccountPage from './Pages/AccountPage';
+import VerificationPage from './Pages/VerificationPage';
 import TerminalPage from './Pages/TerminalPage';
 
 function App() {
@@ -62,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AccountPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/verification"
+            element={
+              <ProtectedRoute>
+                <VerificationPage />
               </ProtectedRoute>
             }
           />

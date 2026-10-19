@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import Card from '../components/Card';
 import StatCard from '../components/StatCard';
+import StatusBadge from '../components/StatusBadge';
 import Field, { inputStyle } from '../components/Field';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrency } from '../lib/format';
 import {
   getAccountStatus,
   setAccountType,
-  submitKyc,
   fundLiveAccount,
   createWithdrawal,
   getMyWithdrawals,
@@ -16,13 +18,6 @@ import {
   type AccountType,
 } from '../api/account';
 
-const DOC_TYPES = [
-  { value: 'nin', label: 'NIN' },
-  { value: 'national_id', label: 'National ID' },
-  { value: 'voters_card', label: "Voter's Card" },
-  { value: 'other', label: 'Other' },
-];
-
 type Tab = 'overview' | 'fund' | 'withdraw';
 
 export default function AccountPage() {
@@ -30,10 +25,6 @@ export default function AccountPage() {
   const [status, setStatus] = useState<AccountStatus | null>(null);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [tab, setTab] = useState<Tab>('overview');
-
-  const [docType, setDocType] = useState('nin');
-  const [docNumber, setDocNumber] = useState('');
-  const [docFile, setDocFile] = useState<File | null>(null);
 
   const [fundAmount, setFundAmount] = useState('');
   const [wdAmount, setWdAmount] = useState('');
@@ -73,28 +64,6 @@ export default function AccountPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to switch account.');
-    }
-  };
-
-  const handleKyc = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !docFile) {
-      setError('Please select a document image.');
-      return;
-    }
-    setError(null);
-    setInfo(null);
-    setLoading(true);
-    try {
-      const res = await submitKyc(token, docType, docNumber, docFile);
-      setInfo(res.message);
-      setDocNumber('');
-      setDocFile(null);
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit document.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -167,8 +136,8 @@ export default function AccountPage() {
 
   const tabStyle = (t: Tab): React.CSSProperties =>
     tab === t
-      ? { ...baseTab, backgroundColor: 'var(--panel2)', color: 'var(--text)', borderColor: 'var(--border)' }
-      : baseTab;
+      ? { ...pillBase, backgroundColor: 'var(--panel2)', color: 'var(--text)', borderColor: 'var(--gold)' }
+      : pillBase;
 
   return (
     <DashboardLayout title="My Account">
@@ -181,11 +150,26 @@ export default function AccountPage() {
         }}
       >
         <StatCard label="Account Type" value={status.accountType.toUpperCase()} />
-        <StatCard label="Available Balance" value={`N${status.availableBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} />
-        <StatCard
-          label="Verification"
-          value={status.liveVerified ? 'Verified' : status.kycStatus}
-        />
+        <StatCard label="Available Balance" value={formatCurrency(status.availableBalance)} />
+        <div
+          className="px-4 py-4 sm:px-5 sm:py-[18px]"
+          style={{
+            backgroundColor: 'var(--panel)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          <span
+            className="text-[11px] sm:text-xs"
+            style={{ fontFamily: 'Inter', fontWeight: 500, color: 'var(--sub)' }}
+          >
+            Verification
+          </span>
+          <StatusBadge status={status.kycStatus} />
+        </div>
       </div>
 
       {error && (
@@ -197,8 +181,13 @@ export default function AccountPage() {
 
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {(['overview', 'fund', 'withdraw'] as Tab[]).map((t) => (
-          <button key={t} type="button" onClick={() => { setError(null); setInfo(null); setTab(t); }} style={tabStyle(t)}>
-            {t}
+          <button
+            key={t}
+            type="button"
+            onClick={() => { setError(null); setInfo(null); setTab(t); }}
+            style={tabStyle(t)}
+          >
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -211,90 +200,36 @@ export default function AccountPage() {
                 key={t}
                 type="button"
                 onClick={() => handleSwitch(t)}
-                style={{
-                  fontFamily: 'Space Grotesk',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  padding: '11px 18px',
-                  borderRadius: 'var(--radius-input)',
-                  cursor: 'pointer',
-                  backgroundColor: status.accountType === t ? 'var(--gold)' : 'var(--panel2)',
-                  color: status.accountType === t ? '#0D0F1A' : 'var(--text)',
-                  border: '1px solid var(--border)',
-                }}
+                style={
+                  status.accountType === t
+                    ? {
+                        ...pillBase,
+                        backgroundColor: 'var(--gold)',
+                        color: '#0D0F1A',
+                        borderColor: 'var(--gold)',
+                      }
+                    : pillBase
+                }
               >
                 {t.toUpperCase()} account
               </button>
             ))}
           </div>
 
-          {status.accountType === 'live' && !status.liveVerified && (
-            <form onSubmit={handleKyc}>
-              <p style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--sub)', marginTop: 0 }}>
-                To use a live account, verify your identity with one government-issued document.
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '14px' }}>
-                {DOC_TYPES.map((d) => (
-                  <label
-                    key={d.value}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '12px 14px',
-                      borderRadius: 'var(--radius-input)',
-                      border: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      backgroundColor: docType === d.value ? 'var(--panel2)' : 'transparent',
-                      fontFamily: 'Inter',
-                      fontSize: '13px',
-                      color: 'var(--text)',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="docType"
-                      value={d.value}
-                      checked={docType === d.value}
-                      onChange={() => setDocType(d.value)}
-                    />
-                    {d.label}
-                  </label>
-                ))}
-              </div>
-              <Field label="Document number">
-                <input
-                  value={docNumber}
-                  onChange={(e) => setDocNumber(e.target.value)}
-                  placeholder="e.g. 12345678901"
-                  style={{ ...inputStyle, fontFamily: 'JetBrains Mono' }}
-                  required
-                />
-              </Field>
-              <Field label="Upload document image">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setDocFile(e.target.files?.[0] || null)}
-                  style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--text)' }}
-                  required
-                />
-              </Field>
-              <PrimaryBtn disabled={loading} onClick={() => {}}>
-                {loading ? 'Submitting…' : 'Submit for verification'}
-              </PrimaryBtn>
-            </form>
+          {!status.liveVerified && (
+            <VerifyBanner status={status.kycStatus} />
           )}
 
+          {!status.liveVerified && (
+            <p style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--sub)' }}>
+              Demo trading stays available to everyone. Once verified you can
+              switch to the live account and fund your wallet to trade with
+              real money.
+            </p>
+          )}
           {status.liveVerified && (
             <p style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--profit)' }}>
               Your identity is verified. You can use the live (real-money) account.
-            </p>
-          )}
-          {!status.liveVerified && status.accountType === 'demo' && (
-            <p style={{ fontFamily: 'Inter', fontSize: '13px', color: 'var(--sub)' }}>
-              You are on the demo account. Switch to live, complete identity verification, then fund
-              your wallet to begin real trading.
             </p>
           )}
         </Card>
@@ -302,6 +237,8 @@ export default function AccountPage() {
 
       {tab === 'fund' && (
         <Card title="Fund Live Account">
+          {!status.liveVerified && <VerifyBanner status={status.kycStatus} />}
+          {status.liveVerified && (
           <form onSubmit={handleFund}>
             <Field label="Amount (NGN)">
               <input
@@ -322,11 +259,14 @@ export default function AccountPage() {
               {loading ? 'Preparing checkout…' : 'Continue to payment'}
             </PrimaryBtn>
           </form>
+          )}
         </Card>
       )}
 
       {tab === 'withdraw' && (
         <Card title="Withdraw Funds">
+          {!status.liveVerified && <VerifyBanner status={status.kycStatus} />}
+          {status.liveVerified && (
           <form onSubmit={handleWithdraw}>
             <Field label="Amount (NGN)">
               <input
@@ -356,6 +296,7 @@ export default function AccountPage() {
               {loading ? 'Submitting…' : 'Request withdrawal'}
             </PrimaryBtn>
           </form>
+          )}
 
           {withdrawals.length > 0 && (
             <div style={{ marginTop: '22px' }}>
@@ -392,18 +333,84 @@ export default function AccountPage() {
   );
 }
 
-const baseTab: React.CSSProperties = {
+// Shared pill style so the tab pills and the DEMO/LIVE switch look identical:
+// same height, radius and typography.
+const pillBase: React.CSSProperties = {
   fontFamily: 'Space Grotesk',
   fontSize: '13px',
   fontWeight: 600,
   textTransform: 'capitalize',
-  padding: '10px 16px',
+  height: '38px',
+  padding: '0 18px',
+  display: 'inline-flex',
+  alignItems: 'center',
   borderRadius: 'var(--radius-pill)',
   backgroundColor: 'var(--panel)',
   color: 'var(--sub)',
   border: '1px solid var(--border)',
   cursor: 'pointer',
 };
+
+/**
+ * Shown on the LIVE switch, Fund and Withdraw tabs when the user is not yet
+ * verified. Links to the verification wizard.
+ */
+function VerifyBanner({ status }: { status: AccountStatus['kycStatus'] }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        padding: '14px 16px',
+        marginBottom: '16px',
+        borderRadius: 'var(--radius-input)',
+        backgroundColor: 'var(--panel2)',
+        border: '1px solid var(--gold)',
+      }}
+    >
+      <div>
+        <p
+          style={{
+            fontFamily: 'Space Grotesk',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'var(--text)',
+            margin: '0 0 4px',
+          }}
+        >
+          Verify your identity to unlock live trading
+        </p>
+        <p style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--sub)', margin: 0 }}>
+          Current status:{' '}
+          {status === 'pending'
+            ? 'under review — we usually respond within 24 hours.'
+            : status === 'rejected'
+            ? 'rejected — please resubmit your documents.'
+            : 'not started. It takes about 3 minutes.'}
+        </p>
+      </div>
+      <Link
+        to="/account/verification"
+        style={{
+          fontFamily: 'Space Grotesk',
+          fontSize: '13px',
+          fontWeight: 600,
+          padding: '10px 18px',
+          borderRadius: 'var(--radius-pill)',
+          backgroundColor: 'var(--gold)',
+          color: '#0D0F1A',
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {status === 'pending' ? 'View status' : status === 'rejected' ? 'Resubmit' : 'Start verification'}
+      </Link>
+    </div>
+  );
+}
 
 const msgStyle = (color: string): React.CSSProperties => ({
   fontFamily: 'Inter',

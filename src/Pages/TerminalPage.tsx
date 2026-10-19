@@ -10,7 +10,7 @@ import type { Direction, IndicatorKey, Trade, Wallet } from '../types/binary';
 import type { DrawingKey } from '../components/terminal/DrawingsSheet';
 import TopBar from '../components/terminal/TopBar';
 import PromoStrip from '../components/terminal/PromoStrip';
-import BottomTabBar, { type TabKey } from '../components/terminal/BottomTabBar';
+import BottomTabBar, { type TabKey, TAB_BAR_HEIGHT } from '../components/terminal/BottomTabBar';
 import ChartToolbar from '../components/terminal/ChartToolbar';
 import PriceChart from '../components/terminal/PriceChart';
 import TradePanel from '../components/terminal/TradePanel';
@@ -391,6 +391,15 @@ export default function TerminalPage() {
         onChange={setTab}
         trophyBadge={1}
         moreBadge={2}
+      />
+      {/* The tab bar is position:fixed, so this spacer reserves its height
+          (plus the iPhone home-indicator safe area) in the flex column. */}
+      <div
+        className="shrink-0"
+        style={{
+          height: TAB_BAR_HEIGHT,
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       />
 
       {/* Toasts */}
