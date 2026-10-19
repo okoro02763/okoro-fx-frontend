@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Star, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Star } from 'lucide-react';
+import Sheet from './Sheet';
 import binaryApi from '../../api/binary';
-import { formatSignedPercent } from '../../lib/format';
 import type { Category, Instrument } from '../../types/binary';
 
 interface PairSelectorModalProps {
@@ -13,19 +13,20 @@ interface PairSelectorModalProps {
   onSelect: (symbol: string) => void;
 }
 
-type TabKey = 'favorites' | Category;
-
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'favorites', label: 'Favorites' },
+const TABS: { key: Category; label: string }[] = [
   { key: 'currencies', label: 'Currencies' },
   { key: 'crypto', label: 'Crypto' },
   { key: 'commodities', label: 'Commodities' },
   { key: 'stocks', label: 'Stocks' },
 ];
 
-function changeColor(pct?: number): string {
-  if (pct === undefined) return 'var(--sub)';
-  return pct >= 0 ? 'var(--profit)' : 'var(--loss)';
+function Flag() {
+  return (
+    <span className="relative h-6 w-8 shrink-0">
+      <span className="absolute left-0 top-0 h-6 w-6 rounded-full" style={{ backgroundColor: 'var(--blue)' }} />
+      <span className="absolute left-2.5 top-0 h-6 w-6 rounded-full" style={{ backgroundColor: 'var(--amber)' }} />
+    </span>
+  );
 }
 
 export default function PairSelectorModal({
@@ -38,11 +39,12 @@ export default function PairSelectorModal({
 }: PairSelectorModalProps) {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<TabKey>('favorites');
+  const [tab, setTab] = useState<Category>('crypto');
   const [query, setQuery] = useState('');
+  const [favOnly, setFavOnly] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     let cancelled = false;
     setLoading(true);
     binaryApi
@@ -63,173 +65,151 @@ export default function PairSelectorModal({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return instruments.filter((i) => {
-      const inTab =
-        tab === 'favorites' ? favorites.includes(i.symbol) : i.category === tab;
-      if (!inTab) return false;
-      if (!q) return true;
-      return (
-        i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
-      );
-    });
-  }, [instruments, tab, query, favorites]);
-
-  if (!open) return null;
+    return instruments
+      .filter((i) => {
+        if (favOnly && !favorites.includes(i.symbol)) return false;
+        if (!favOnly && i.category !== tab) return false;
+        if (!q) return true;
+        return i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [instruments, tab, query, favorites, favOnly]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div
-        className="absolute inset-0 bg-black/60"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        className="relative flex h-[82vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl sm:h-[70vh] sm:rounded-2xl"
-        style={{ backgroundColor: 'var(--panel)', border: '1px solid var(--border)' }}
-      >
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          <h2
-            className="text-[15px] font-semibold"
-            style={{ fontFamily: 'Space Grotesk', color: 'var(--text)' }}
+    <Sheet open={open} onClose={onClose} title="Select trade pair">
+      {/* Tabs */}
+      <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
+        {TABS.map((t) => {
+          const active = !favOnly && t.key === tab;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                setFavOnly(false);
+                setTab(t.key);
+              }}
+              className="shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold uppercase"
+              style={{
+                backgroundColor: active ? 'var(--blue)' : 'var(--panel-2)',
+                color: active ? '#fff' : 'var(--muted)',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Favorites + search + sort */}
+      <div className="px-4">
+        <div className="mb-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFavOnly((v) => !v)}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+            style={{
+              backgroundColor: favOnly ? 'var(--amber)' : 'var(--panel-2)',
+              color: favOnly ? '#1c2033' : 'var(--text)',
+            }}
           >
-            Select trade pair
-          </h2>
-          <button type="button" onClick={onClose} aria-label="Close">
-            <X size={18} color="var(--sub)" />
+            <Star size={13} color={favOnly ? '#1c2033' : 'var(--amber)'} fill={favOnly ? '#1c2033' : 'none'} />
+            {favorites.length}
           </button>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search"
+            className="flex-1 rounded-full px-3.5 py-1.5 text-[13px] outline-none"
+            style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}
+          />
         </div>
+        <div className="mb-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+          Sort by: <span style={{ color: 'var(--text)' }}>Name</span>
+        </div>
+      </div>
 
-        <div className="px-3 pt-2">
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2"
-            style={{ backgroundColor: 'var(--panel2)', border: '1px solid var(--border)' }}
-          >
-            <Search size={15} color="var(--sub)" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search"
-              className="w-full bg-transparent text-[13px] outline-none"
-              style={{ fontFamily: 'Inter', color: 'var(--text)' }}
-            />
+      {/* List */}
+      <div className="pb-6">
+        {loading && (
+          <div className="p-6 text-center text-[13px]" style={{ color: 'var(--muted)' }}>
+            Loading instruments…
           </div>
-        </div>
-
-        <div
-          className="flex gap-1 overflow-x-auto px-3 py-2"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          {TABS.map((t) => {
-            const active = t.key === tab;
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="p-6 text-center text-[13px]" style={{ color: 'var(--muted)' }}>
+            Nothing here yet.
+          </div>
+        )}
+        {!loading &&
+          filtered.map((i) => {
+            const fav = favorites.includes(i.symbol);
+            const pct = i.percent_change ?? 0;
+            const up = pct >= 0;
+            const short = i.payout_percent_short ?? i.payout_percent;
+            const long = i.payout_percent_long ?? String(Math.min(95, Number(i.payout_percent) + 3));
             return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className="shrink-0 rounded-full px-3 py-1 text-[12px] font-medium"
+              <div
+                key={i.symbol}
+                className="flex items-center gap-3 px-4 py-2.5"
                 style={{
-                  fontFamily: 'Inter',
-                  color: active ? 'var(--bg)' : 'var(--sub)',
-                  backgroundColor: active ? 'var(--gold)' : 'transparent',
+                  borderBottom: '1px solid var(--border)',
+                  backgroundColor: i.symbol === currentSymbol ? 'var(--panel-2)' : 'transparent',
                 }}
               >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {loading && (
-            <div className="p-6 text-center text-[13px]" style={{ color: 'var(--sub)' }}>
-              Loading instruments…
-            </div>
-          )}
-          {!loading && filtered.length === 0 && (
-            <div className="p-6 text-center text-[13px]" style={{ color: 'var(--sub)' }}>
-              No instruments here yet.
-            </div>
-          )}
-          {!loading &&
-            filtered.map((i) => {
-              const fav = favorites.includes(i.symbol);
-              const pct = i.percent_change;
-              return (
                 <button
-                  key={i.symbol}
+                  type="button"
+                  aria-label="Toggle favorite"
+                  onClick={() => onToggleFavorite(i.symbol)}
+                  className="shrink-0"
+                >
+                  <Star size={16} color={fav ? 'var(--amber)' : 'var(--faint)'} fill={fav ? 'var(--amber)' : 'none'} />
+                </button>
+
+                <button
                   type="button"
                   onClick={() => onSelect(i.symbol)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
-                  style={{
-                    borderBottom: '1px solid var(--border)',
-                    backgroundColor:
-                      i.symbol === currentSymbol ? 'var(--panel2)' : 'transparent',
-                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(i.symbol);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onToggleFavorite(i.symbol);
-                      }
-                    }}
-                    className="shrink-0"
-                    aria-label="Toggle favorite"
-                  >
-                    <Star
-                      size={16}
-                      color={fav ? 'var(--gold)' : 'var(--faint)'}
-                      fill={fav ? 'var(--gold)' : 'none'}
-                    />
-                  </span>
+                  <Flag />
                   <span className="min-w-0 flex-1">
-                    <span
-                      className="block truncate text-[13px] font-semibold"
-                      style={{ fontFamily: 'Inter', color: 'var(--text)' }}
-                    >
-                      {i.symbol}
-                    </span>
-                    <span
-                      className="block truncate text-[11px]"
-                      style={{ color: 'var(--sub)' }}
-                    >
+                    <span className="block truncate text-[13px] font-semibold" style={{ color: 'var(--text)' }}>
                       {i.name}
                     </span>
-                  </span>
-                  <span className="shrink-0 text-right">
-                    {pct !== undefined && (
-                      <span
-                        className="block text-[12px] font-medium"
-                        style={{ fontFamily: 'Inter', color: changeColor(pct) }}
-                      >
-                        {formatSignedPercent(pct)}
+                    <span className="block truncate text-[11px]">
+                      <span style={{ color: 'var(--muted)' }}>Profit 1+ min </span>
+                      <span style={{ color: 'var(--muted)' }}>
+                        <span style={{ color: 'var(--amber)' }}>{Math.round(Number(short))}%</span>
                       </span>
-                    )}
+                      <span style={{ color: 'var(--muted)' }}>  5+ min </span>
+                      <span style={{ color: 'var(--amber)' }}>{Math.round(Number(long))}%</span>
+                    </span>
+                  </span>
+
+                  <span className="flex shrink-0 items-center gap-1.5">
                     <span
-                      className="mt-0.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                      style={{
-                        color: 'var(--profit)',
-                        backgroundColor: 'rgba(56,217,169,0.12)',
-                      }}
+                      className="mono text-[12px] font-semibold"
+                      style={{ color: up ? 'var(--green)' : 'var(--red)' }}
                     >
-                      {Math.round(parseFloat(i.payout_percent))}%
+                      {up ? '+' : ''}
+                      {pct.toFixed(2)}%
+                    </span>
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-full"
+                      style={{ backgroundColor: up ? 'var(--green)' : 'var(--red)' }}
+                    >
+                      {up ? (
+                        <ArrowUpRight size={13} color="#fff" />
+                      ) : (
+                        <ArrowDownRight size={13} color="#fff" />
+                      )}
                     </span>
                   </span>
                 </button>
-              );
-            })}
-        </div>
+              </div>
+            );
+          })}
       </div>
-    </div>
+    </Sheet>
   );
 }

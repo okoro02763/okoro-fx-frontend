@@ -62,3 +62,107 @@
 .fp-root * {
   box-sizing: border-box;
 }
+
+/* ---------------------------------------------------------------------------
+ * KoroFX mobile trading terminal.
+ *
+ * A dedicated scope so the new mobile palette does not restyle the existing
+ * OKORO FX pages, which still rely on the .fp-root variables above.
+ * ------------------------------------------------------------------------- */
+.kt-root {
+  --bg: #1c2033;
+  --panel: #272c42;
+  --panel-2: #2f3550;
+  --panel2: #2f3550;
+  --border: #363c58;
+  --line: #363c58;
+  --text: #ffffff;
+  --muted: #8a90a8;
+  --sub: #8a90a8;
+  --faint: #6a708a;
+  --green: #0fb360;
+  --red: #ef4b3a;
+  --blue: #2b8cff;
+  --amber: #ff9f1a;
+  --up: #0fb360;
+  --down: #ef5a4c;
+  /* keep legacy aliases working inside the terminal */
+  --profit: #0fb360;
+  --loss: #ef4b3a;
+  --gold: #ff9f1a;
+
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+.kt-root * {
+  box-sizing: border-box;
+}
+
+.kt-root h1,
+.kt-root h2,
+.kt-root h3,
+.kt-root h4 {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  margin: 0;
+}
+
+.kt-root .mono,
+.kt-root [data-mono] {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.kt-root input,
+.kt-root textarea,
+.kt-root select,
+.kt-root button {
+  font-family: inherit;
+}
+
+/* Hide scrollbars on the terminal's horizontal strips without losing scroll. */
+.kt-root .no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.kt-root .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Respect iPhone home-indicator safe area. */
+.kt-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.kt-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@keyframes kt-slide-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.kt-sheet {
+  animation: kt-slide-up 0.18s ease-out;
+}
+
+@keyframes kt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.kt-fade {
+  animation: kt-fade-in 0.15s ease-out;
+}

@@ -3,6 +3,36 @@ export type Direction = 'buy' | 'sell';
 export type TradeStatus = 'open' | 'won' | 'lost' | 'refund';
 export type ChartType = 'candles' | 'area' | 'bars' | 'heikin-ashi';
 
+/** A single raw market tick used to build candles. `time` is unix seconds. */
+export interface Tick {
+  time: number;
+  price: number;
+}
+
+/** Connection state of the live price feed. */
+export type ConnectionStatus = 'connecting' | 'live' | 'offline';
+
+/** Where the current price/candle data came from. */
+export type MarketSource = 'binance' | 'backend' | 'none';
+
+/** Technical overlays/indicators offered in the terminal. */
+export type IndicatorKey =
+  | 'ma'
+  | 'bollinger'
+  | 'rsi'
+  | 'macd'
+  | 'psar'
+  | 'supertrend';
+
+export const INDICATOR_LABELS: { key: IndicatorKey; label: string }[] = [
+  { key: 'ma', label: 'Moving Average' },
+  { key: 'bollinger', label: 'Bollinger Bands' },
+  { key: 'rsi', label: 'RSI' },
+  { key: 'macd', label: 'MACD' },
+  { key: 'psar', label: 'Parabolic SAR' },
+  { key: 'supertrend', label: 'Supertrend' },
+];
+
 export interface Instrument {
   id: number;
   symbol: string;
@@ -10,6 +40,8 @@ export interface Instrument {
   category: Category;
   category_display: string;
   payout_percent: string;
+  payout_percent_short?: string;
+  payout_percent_long?: string;
   is_active: boolean;
   sort_order: number;
   price?: number;

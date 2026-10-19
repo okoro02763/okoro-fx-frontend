@@ -1,33 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  BarChart3,
-  Briefcase,
-  HelpCircle,
-  ListOrdered,
-  MoreHorizontal,
-  RotateCcw,
-  User,
-} from 'lucide-react';
+import { Award, ShieldCheck, TrendingUp } from 'lucide-react';
 import binaryApi from '../api/binary';
 import { useAuth } from '../context/AuthContext';
-import { usePriceStream } from '../hooks/usePriceStream';
+import { useMarketData } from '../hooks/useMarketData';
 import { useTerminal } from '../store/terminal';
-import {
-  formatMoney,
-  formatPrice,
-  formatSignedPercent,
-} from '../lib/format';
-import type { Candle, Direction, Trade, Wallet } from '../types/binary';
-import PriceChart from '../components/terminal/PriceChart';
+import { formatMoney, formatPrice, formatSignedPercent } from '../lib/format';
+import type { Direction, IndicatorKey, Trade, Wallet } from '../types/binary';
+import type { DrawingKey } from '../components/terminal/DrawingsSheet';
+import TopBar from '../components/terminal/TopBar';
+import PromoStrip from '../components/terminal/PromoStrip';
+import BottomTabBar, { type TabKey } from '../components/terminal/BottomTabBar';
 import ChartToolbar from '../components/terminal/ChartToolbar';
+import PriceChart from '../components/terminal/PriceChart';
 import TradePanel from '../components/terminal/TradePanel';
-import TradesPanel from '../components/terminal/TradesPanel';
-import TradesDrawer from '../components/terminal/TradesDrawer';
+import TradesSheet from '../components/terminal/TradesSheet';
 import PairSelectorModal from '../components/terminal/PairSelectorModal';
-
-type Tab = 'chart' | 'trades' | 'help' | 'profile' | 'more';
+import NotificationsSheet from '../components/terminal/NotificationsSheet';
+import AccountDropdown from '../components/terminal/AccountDropdown';
+import ExchangeFormModal from '../components/terminal/ExchangeFormModal';
 
 interface Toast {
   id: number;
@@ -35,18 +26,12 @@ interface Toast {
   text: string;
 }
 
-const TAB_ITEMS: { key: Tab; label: string; icon: typeof BarChart3 }[] = [
-  { key: 'chart', label: 'Chart', icon: BarChart3 },
-  { key: 'trades', label: 'Trades', icon: ListOrdered },
-  { key: 'help', label: 'Help', icon: HelpCircle },
-  { key: 'profile', label: 'Profile', icon: User },
-  { key: 'more', label: 'More', icon: MoreHorizontal },
-];
+const FALLBACK_BALANCE = 10022.5;
 
 function toastColor(type: Toast['type']): string {
-  if (type === 'win') return 'var(--profit)';
-  if (type === 'loss' || type === 'error') return 'var(--loss)';
-  return 'var(--gold)';
+  if (type === 'win') return 'var(--green)';
+  if (type === 'loss' || type === 'error') return 'var(--red)';
+  return 'var(--blue)';
 }
 
 export default function TerminalPage() {
@@ -55,30 +40,40 @@ export default function TerminalPage() {
     symbol,
     timeframe,
     chartType,
-    stake,
+    stakeMode,
+    stakeValue,
     durationSeconds,
+    pendingTrade,
     favorites,
     setSymbol,
     setTimeframe,
     setChartType,
-    setStake,
+    setStakeMode,
+    setStakeValue,
     setDuration,
+    setPendingTrade,
     toggleFavorite,
   } = useTerminal();
 
-  const { quote, connected } = usePriceStream(symbol);
+  const market = useMarketData(symbol, timeframe.seconds);
+  const { candles, price, change24h, status, loading } = market;
 
-  const [tab, setTab] = useState<Tab>('chart');
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [candlesLoading, setCandlesLoading] = useState(false);
+  const [tab, setTab] = useState<TabKey>('chart');
+  const [promoOpen, setPromoOpen] = useState(true);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [tradesLoading, setTradesLoading] = useState(true);
-  const [pairModalOpen, setPairModalOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [instrumentName, setInstrumentName] = useState<string>('');
+  const [payoutPercent, setPayoutPercent] = useState(80);
+  const [pairOpen, setPairOpen] = useState(false);
+  const [tradesOpen, setTradesOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  const [indicators, setIndicators] = useState<IndicatorKey[]>([]);
+  const [drawings, setDrawings] = useState<DrawingKey[]>([]);
 
   const prevOpenIdsRef = useRef<Set<number>>(new Set());
   const firstLoadRef = useRef(true);
@@ -88,36 +83,29 @@ export default function TerminalPage() {
     toastSeq.current += 1;
     const id = toastSeq.current;
     setToasts((prev) => [...prev, { id, type, text }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4500);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4500);
   }, []);
 
-  // Load candles whenever the symbol or timeframe changes (and refresh on a
-  // slow timer so the series stays aligned with the live ticks).
+  // Load the instrument name for the current symbol (for the trade panel).
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      setCandlesLoading(true);
-      try {
-        const rows = await binaryApi.getCandles(symbol, timeframe.key, 300);
-        if (!cancelled) setCandles(rows);
-      } catch {
-        if (!cancelled) setCandles([]);
-      } finally {
-        if (!cancelled) setCandlesLoading(false);
-      }
-    };
-    load();
-    const id = setInterval(load, 60000);
+    binaryApi
+      .getInstruments()
+      .then((rows) => {
+        if (cancelled) return;
+        const found = rows.find((r) => r.symbol === symbol);
+        setInstrumentName(found?.name ?? symbol);
+        if (found) setPayoutPercent(Math.round(Number(found.payout_percent)) || 80);
+      })
+      .catch(() => {
+        if (!cancelled) setInstrumentName(symbol);
+      });
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
-  }, [symbol, timeframe.key]);
+  }, [symbol]);
 
-  // Poll trades (the response also carries the wallet). Detect trades that
-  // moved from open -> settled to raise the result toast.
+  // Poll trades + wallet; raise a result toast when a trade settles.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -125,9 +113,7 @@ export default function TerminalPage() {
         const res = await binaryApi.getTrades();
         if (cancelled) return;
         const prev = prevOpenIdsRef.current;
-        const settled = res.results.filter(
-          (t) => t.status !== 'open' && prev.has(t.id)
-        );
+        const settled = res.results.filter((t) => t.status !== 'open' && prev.has(t.id));
         if (settled.length && !firstLoadRef.current) {
           settled.forEach((t) => {
             if (t.status === 'won') {
@@ -145,9 +131,8 @@ export default function TerminalPage() {
         firstLoadRef.current = false;
         setTrades(res.results);
         setWallet(res.wallet);
-        setTradesLoading(false);
       } catch {
-        if (!cancelled) setTradesLoading(false);
+        /* backend optional for the demo */
       }
     };
     load();
@@ -158,20 +143,29 @@ export default function TerminalPage() {
     };
   }, [pushToast]);
 
-  // 1s clock for open-trade countdowns.
+  // 1s clock for countdowns.
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
+  const balance = wallet ? parseFloat(wallet.demo_balance) : FALLBACK_BALANCE;
+  const resolvedStake =
+    stakeMode === 'percent' ? (balance * stakeValue) / 100 : stakeValue;
+  const openTradeCount = trades.filter((t) => t.status === 'open').length;
+
   const handleTrade = async (direction: Direction) => {
     if (placing) return;
+    if (resolvedStake > balance) {
+      pushToast('error', 'Stake exceeds your demo balance.');
+      return;
+    }
     setPlacing(true);
     try {
       const res = await binaryApi.openTrade({
         symbol,
         direction,
-        stake,
+        stake: resolvedStake,
         duration_seconds: durationSeconds,
       });
       setWallet(res.wallet);
@@ -179,15 +173,9 @@ export default function TerminalPage() {
       prevOpenIdsRef.current = new Set(
         Array.from(prevOpenIdsRef.current).concat(res.trade.id)
       );
-      pushToast(
-        'info',
-        `${direction === 'buy' ? 'Buy' : 'Sell'} ${symbol} — ${formatMoney(stake)}`
-      );
-    } catch (err) {
-      const detail =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail || 'Could not open the trade.';
-      pushToast('error', detail);
+      pushToast('info', `${direction === 'buy' ? 'Buy' : 'Sell'} ${symbol} — ${formatMoney(resolvedStake)}`);
+    } catch {
+      pushToast('error', 'Could not open the trade. Backend unavailable.');
     } finally {
       setPlacing(false);
     }
@@ -197,179 +185,180 @@ export default function TerminalPage() {
     try {
       const fresh = await binaryApi.resetWallet();
       setWallet(fresh);
-      pushToast('info', 'Demo balance reset to $10,000');
+      pushToast('info', 'Demo balance reset');
     } catch {
       pushToast('error', 'Could not reset the demo balance.');
     }
   };
 
-  const price = quote?.price ?? 0;
-  const change = quote?.percent_change ?? 0;
-  const changeColor = change >= 0 ? 'var(--profit)' : 'var(--loss)';
-  const payoutPercent = quote?.payout_percent ?? 80;
-  const openTradeCount = trades.filter((t) => t.status === 'open').length;
+  const toggleIndicator = (key: IndicatorKey) =>
+    setIndicators((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+
+  const toggleDrawing = (key: DrawingKey) =>
+    setDrawings((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+
+  const changeColor = change24h >= 0 ? 'var(--green)' : 'var(--red)';
 
   return (
-    <div className="fp-root flex h-[100dvh] flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
-      {/* Top bar */}
-      <header
-        className="shrink-0 px-3 py-2"
-        style={{ backgroundColor: 'var(--panel)', borderBottom: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center gap-2">
-          <Link
-            to="/"
-            className="flex items-center gap-1 text-[12px]"
-            style={{ fontFamily: 'Inter', color: 'var(--sub)' }}
-          >
-            <ArrowLeft size={15} /> Dashboard
-          </Link>
-          <span
-            className="ml-auto rounded px-2 py-0.5 text-[11px] font-semibold"
-            style={{ color: 'var(--gold)', backgroundColor: 'rgba(232,180,84,0.12)' }}
-          >
-            DEMO
-          </span>
-          <span className="text-[14px] font-bold" style={{ fontFamily: 'Space Grotesk', color: 'var(--text)' }}>
-            {wallet ? formatMoney(parseFloat(wallet.demo_balance)) : '—'}
-          </span>
-          <button
-            type="button"
-            onClick={handleReset}
-            aria-label="Reset demo balance"
-            className="flex h-7 w-7 items-center justify-center rounded"
-            style={{ border: '1px solid var(--border)' }}
-          >
-            <RotateCcw size={13} color="var(--sub)" />
-          </button>
-          <Link
-            to="/account"
-            className="rounded px-2.5 py-1 text-[12px] font-semibold"
-            style={{ fontFamily: 'Inter', color: 'var(--bg)', backgroundColor: 'var(--gold)' }}
-          >
-            Deposit
-          </Link>
-        </div>
+    <div className="kt-root flex h-[100dvh] flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
+      <TopBar
+        balance={balance}
+        unreadCount={2}
+        onAccount={() => setAccountOpen((v) => !v)}
+        onBell={() => setNotifOpen(true)}
+        onDeposit={() => setExchangeOpen(true)}
+      />
 
-        <div className="mt-1.5 flex items-baseline gap-2">
-          <span className="text-[16px] font-semibold" style={{ fontFamily: 'Space Grotesk', color: 'var(--text)' }}>
-            {symbol}
-          </span>
-          <span
-            className="text-[15px] font-medium tabular-nums"
-            style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--text)' }}
-          >
-            {price ? formatPrice(price) : '—'}
-          </span>
-          <span className="text-[12px] font-medium" style={{ fontFamily: 'Inter', color: changeColor }}>
-            {formatSignedPercent(change)}
-          </span>
-          <span className="ml-auto flex items-center gap-1 text-[11px]" style={{ color: 'var(--sub)' }}>
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: connected ? 'var(--profit)' : 'var(--loss)' }}
-            />
-            {connected ? 'Live' : 'Connecting'}
-          </span>
-        </div>
-      </header>
+      {promoOpen && <PromoStrip onClose={() => setPromoOpen(false)} />}
 
-      {/* Main */}
       <main className="relative min-h-0 flex-1">
         {tab === 'chart' && (
-          <div className="flex h-full flex-col">
-            <div className="shrink-0" style={{ backgroundColor: 'var(--panel)' }}>
-              <ChartToolbar
-                timeframe={timeframe}
-                onTimeframe={setTimeframe}
-                chartType={chartType}
-                onChartType={setChartType}
-              />
+          <div className="relative h-full w-full">
+            <PriceChart
+              symbol={symbol}
+              candles={candles}
+              chartType={chartType}
+              intervalSeconds={timeframe.seconds}
+              price={price}
+              trades={trades}
+              now={now}
+              indicators={indicators}
+            />
+
+            {/* Price + status overlay (top-right, clear of the toolbar) */}
+            <div className="pointer-events-none absolute right-2 top-2 z-[20] text-right">
+              <div className="text-[11px] font-semibold" style={{ color: 'var(--text)' }}>
+                {symbol}
+              </div>
+              <div className="mono text-[15px] font-semibold" style={{ color: 'var(--text)' }}>
+                {price ? formatPrice(price) : '—'}
+              </div>
+              <div className="text-[11px] font-semibold" style={{ color: changeColor }}>
+                {formatSignedPercent(change24h)}
+              </div>
+              <div className="mt-0.5 flex items-center justify-end gap-1">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    backgroundColor:
+                      status === 'live'
+                        ? 'var(--green)'
+                        : status === 'connecting'
+                        ? 'var(--amber)'
+                        : 'var(--red)',
+                  }}
+                />
+                <span className="text-[10px] capitalize" style={{ color: 'var(--muted)' }}>
+                  {status === 'live' ? 'Live' : status === 'connecting' ? 'Connecting' : 'Offline'}
+                </span>
+              </div>
             </div>
-            <div className="relative min-h-0 flex-1">
-              <PriceChart
-                symbol={symbol}
-                candles={candles}
-                chartType={chartType}
-                intervalSeconds={timeframe.seconds}
-                tick={quote}
-                trades={trades}
-                now={now}
-              />
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                aria-label="Open trades"
-                className="absolute bottom-4 left-2 z-20 flex h-10 w-10 items-center justify-center rounded-full shadow-xl"
-                style={{
-                  backgroundColor: 'var(--panel2)',
-                  border: '1px solid var(--border)',
-                }}
+
+            <ChartToolbar
+              timeframe={timeframe}
+              onTimeframe={setTimeframe}
+              chartType={chartType}
+              onChartType={setChartType}
+              indicators={indicators}
+              onToggleIndicator={toggleIndicator}
+              onClearIndicators={() => setIndicators([])}
+              drawings={drawings}
+              onToggleDrawing={toggleDrawing}
+              onClearDrawings={() => setDrawings([])}
+              openTradeCount={openTradeCount}
+              onOpenTrades={() => setTradesOpen(true)}
+            />
+
+            {loading && candles.length === 0 && (
+              <div
+                className="absolute inset-0 z-[25] flex items-center justify-center text-[13px]"
+                style={{ color: 'var(--muted)' }}
               >
-                <Briefcase size={17} color="var(--gold)" />
-                {openTradeCount > 0 && (
-                  <span
-                    className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                    style={{ backgroundColor: 'var(--gold)', color: 'var(--bg)' }}
-                  >
-                    {openTradeCount}
-                  </span>
-                )}
-              </button>
-              {candlesLoading && candles.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: 'var(--sub)' }}>
-                  Loading chart…
-                </div>
-              )}
-            </div>
+                Loading chart…
+              </div>
+            )}
           </div>
         )}
 
-        {tab === 'trades' && (
-          <TradesPanel trades={trades} now={now} loading={tradesLoading} />
-        )}
-
         {tab === 'help' && (
-          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--sub)', fontFamily: 'Inter' }}>
-            <h2 className="mb-3 text-[16px] font-semibold" style={{ fontFamily: 'Space Grotesk', color: 'var(--text)' }}>
+          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--muted)' }}>
+            <h2 className="mb-3 text-[16px] font-semibold" style={{ color: 'var(--text)' }}>
               How it works
             </h2>
             <ul className="list-disc space-y-2 pl-5">
-              <li>Pick a direction (Buy if you expect the price to rise, Sell if it should fall).</li>
-              <li>Choose an expiry — the trade settles automatically when it runs out.</li>
-              <li>Set a stake. A win pays back your stake plus the fixed payout percentage.</li>
-              <li>This is a paper-trading demo: balances are virtual and no real money moves.</li>
+              <li>Pick a direction: Buy if you expect the price to rise, Sell if it should fall.</li>
+              <li>Choose an expiry time and an investment amount (or a % of your balance).</li>
+              <li>A win pays back your stake plus the fixed payout percentage.</li>
+              <li>This is a paper-trading demo — balances are virtual and no real money moves.</li>
             </ul>
           </div>
         )}
 
         {tab === 'profile' && (
-          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--sub)', fontFamily: 'Inter' }}>
-            <h2 className="mb-1 text-[16px] font-semibold" style={{ fontFamily: 'Space Grotesk', color: 'var(--text)' }}>
+          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--muted)' }}>
+            <h2 className="mb-1 text-[16px] font-semibold" style={{ color: 'var(--text)' }}>
               {user?.name || user?.email || 'Account'}
             </h2>
             <p className="mb-4">{user?.email}</p>
             <div className="flex flex-col gap-2">
-              <Link to="/account" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel2)', color: 'var(--text)' }}>
-                Account & verification
+              <Link to="/account" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
+                Account &amp; verification
               </Link>
-              <Link to="/referrals" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel2)', color: 'var(--text)' }}>
+              <Link to="/referrals" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
                 Referrals
               </Link>
             </div>
           </div>
         )}
 
+        {tab === 'trophy' && (
+          <div className="h-full overflow-y-auto p-5">
+            <h2 className="mb-3 text-[16px] font-semibold" style={{ color: 'var(--text)' }}>
+              Achievements
+            </h2>
+            {[
+              { icon: Award, title: 'First Steps', text: 'Place your first trade' },
+              { icon: TrendingUp, title: 'On a Roll', text: 'Win 3 trades in a row' },
+              { icon: ShieldCheck, title: 'Risk Manager', text: 'Use percent-based investing' },
+            ].map(({ icon: Icon, title, text }) => (
+              <div
+                key={title}
+                className="mb-2 flex items-center gap-3 rounded-xl p-3"
+                style={{ backgroundColor: 'var(--panel-2)' }}
+              >
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full"
+                  style={{ backgroundColor: 'var(--panel)' }}
+                >
+                  <Icon size={18} color="var(--amber)" />
+                </span>
+                <span>
+                  <span className="block text-[13px] font-semibold" style={{ color: 'var(--text)' }}>
+                    {title}
+                  </span>
+                  <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                    {text}
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {tab === 'more' && (
-          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--sub)', fontFamily: 'Inter' }}>
+          <div className="h-full overflow-y-auto p-5 text-[13px]" style={{ color: 'var(--muted)' }}>
             <div className="flex flex-col gap-2">
-              <Link to="/" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel2)', color: 'var(--text)' }}>
+              <Link to="/" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
                 Bot dashboard
               </Link>
-              <Link to="/analytics" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel2)', color: 'var(--text)' }}>
+              <Link to="/analytics" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
                 Analytics
               </Link>
-              <Link to="/settings/strategy" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel2)', color: 'var(--text)' }}>
+              <Link to="/settings/strategy" className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
                 Strategy settings
               </Link>
             </div>
@@ -377,53 +366,41 @@ export default function TerminalPage() {
         )}
       </main>
 
-      {/* Trade panel (chart tab only) */}
       {tab === 'chart' && (
         <TradePanel
           symbol={symbol}
+          instrumentName={instrumentName}
           payoutPercent={payoutPercent}
-          stake={stake}
+          balance={balance}
           durationSeconds={durationSeconds}
-          placing={placing}
-          onOpenPair={() => setPairModalOpen(true)}
-          onStake={setStake}
           onDuration={setDuration}
+          stakeMode={stakeMode}
+          stakeValue={stakeValue}
+          onStakeMode={setStakeMode}
+          onStakeValue={setStakeValue}
+          pendingTrade={pendingTrade}
+          onPendingTrade={setPendingTrade}
+          placing={placing}
+          onOpenPair={() => setPairOpen(true)}
           onTrade={handleTrade}
         />
       )}
 
-      {/* Bottom tab bar */}
-      <nav
-        className="flex shrink-0 items-stretch"
-        style={{ backgroundColor: 'var(--panel)', borderTop: '1px solid var(--border)' }}
-      >
-        {TAB_ITEMS.map(({ key, label, icon: Icon }) => {
-          const active = key === tab;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2"
-            >
-              <Icon size={18} color={active ? 'var(--gold)' : 'var(--sub)'} />
-              <span className="text-[10px]" style={{ fontFamily: 'Inter', color: active ? 'var(--gold)' : 'var(--sub)' }}>
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+      <BottomTabBar
+        active={tab}
+        onChange={setTab}
+        trophyBadge={1}
+        moreBadge={2}
+      />
 
       {/* Toasts */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex flex-col items-center gap-2 px-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[90] flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (
           <div
             key={t.id}
             className="pointer-events-auto w-full max-w-sm rounded-xl px-4 py-3 text-[13px] font-medium shadow-2xl"
             style={{
-              fontFamily: 'Inter',
-              backgroundColor: 'var(--panel2)',
+              backgroundColor: 'var(--panel-2)',
               border: `1px solid ${toastColor(t.type)}`,
               color: 'var(--text)',
             }}
@@ -437,22 +414,45 @@ export default function TerminalPage() {
       </div>
 
       <PairSelectorModal
-        open={pairModalOpen}
-        onClose={() => setPairModalOpen(false)}
+        open={pairOpen}
+        onClose={() => setPairOpen(false)}
         currentSymbol={symbol}
         favorites={favorites}
         onToggleFavorite={toggleFavorite}
         onSelect={(next) => {
           setSymbol(next);
-          setPairModalOpen(false);
+          setPairOpen(false);
         }}
       />
 
-      <TradesDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+      <TradesSheet
+        open={tradesOpen}
+        onClose={() => setTradesOpen(false)}
         trades={trades}
         now={now}
+      />
+
+      <NotificationsSheet open={notifOpen} onClose={() => setNotifOpen(false)} />
+
+      <AccountDropdown
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        user={user}
+        balance={balance}
+        onReset={handleReset}
+        onExchange={() => {
+          setAccountOpen(false);
+          setExchangeOpen(true);
+        }}
+      />
+
+      <ExchangeFormModal
+        open={exchangeOpen}
+        onClose={() => setExchangeOpen(false)}
+        onConfirm={() => {
+          setExchangeOpen(false);
+          pushToast('info', 'Exchange request submitted (demo).');
+        }}
       />
     </div>
   );
