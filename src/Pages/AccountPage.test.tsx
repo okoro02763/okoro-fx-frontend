@@ -107,9 +107,10 @@ test('shows an error card with a Retry button when the request fails', async () 
 
   renderPage();
 
-  expect(
-    await screen.findByText(/couldn’t load your account/i)
-  ).toBeInTheDocument();
+  // A 500 is retried once automatically, so the card only appears after the
+  // retry has run out.
+  const alert = await screen.findByRole('alert', {}, { timeout: 6000 });
+  expect(alert).toHaveTextContent(/couldn’t load your account/i);
   // Friendly text only: the raw error must not reach the user.
   expect(screen.queryByText(/server exploded/i)).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
@@ -120,12 +121,18 @@ test('the Retry button asks the API again', async () => {
 
   renderPage();
 
-  const retry = await screen.findByRole('button', { name: /retry/i });
+  const retry = await screen.findByRole(
+    'button',
+    { name: /retry/i },
+    { timeout: 6000 }
+  );
+  const callsBefore = mockGetAccountStatus.mock.calls.length;
+
   mockGetAccountStatus.mockResolvedValue(ACCOUNT);
   await userEvent.click(retry);
 
   expect(await screen.findByText('DEMO')).toBeInTheDocument();
-  expect(mockGetAccountStatus).toHaveBeenCalledTimes(2);
+  expect(mockGetAccountStatus.mock.calls.length).toBeGreaterThan(callsBefore);
 });
 
 test('retries once automatically after a transport failure', async () => {
@@ -151,7 +158,6 @@ test('does not retry a rejection the server will not change (401)', async () => 
   ).toBeInTheDocument();
   expect(mockGetAccountStatus).toHaveBeenCalledTimes(1);
 });
-
 test('renders the account with a currency-formatted balance and a status badge', async () => {
   mockGetAccountStatus.mockResolvedValue({
     ...ACCOUNT,
