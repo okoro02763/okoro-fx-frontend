@@ -20,7 +20,9 @@ test('a request that never answers is aborted and reported as a timeout', async 
       })
   );
 
-  const error = await request('/account/', { timeoutMs: 20 }).catch((e) => e);
+  const error = (await request('/account/', { timeoutMs: 20 }).catch(
+    (e) => e
+  )) as ApiError;
 
   expect(error).toBeInstanceOf(ApiError);
   expect(error.timedOut).toBe(true);
@@ -33,7 +35,7 @@ test('a transport failure is reported as an offline error, not a crash', async (
   const fetchMock = mockFetch();
   fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
-  const error = await request('/account/').catch((e) => e);
+  const error = (await request('/account/').catch((e) => e)) as ApiError;
 
   expect(error).toBeInstanceOf(ApiError);
   expect(error.offline).toBe(true);
@@ -47,7 +49,7 @@ test('a 500 is retryable and a 401 is not', async () => {
     status: 500,
     json: async () => ({ message: 'server exploded' }),
   });
-  const serverError = await request('/account/').catch((e) => e);
+  const serverError = (await request('/account/').catch((e) => e)) as ApiError;
   expect(serverError.status).toBe(500);
   expect(isRetryableError(serverError)).toBe(true);
 
@@ -56,7 +58,7 @@ test('a 500 is retryable and a 401 is not', async () => {
     status: 401,
     json: async () => ({ message: 'unauthorised' }),
   });
-  const authError = await request('/account/').catch((e) => e);
+  const authError = (await request('/account/').catch((e) => e)) as ApiError;
   expect(authError.status).toBe(401);
   expect(isRetryableError(authError)).toBe(false);
 });
