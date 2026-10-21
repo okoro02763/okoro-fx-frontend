@@ -1,7 +1,15 @@
 import { request } from './client';
 
 export type AccountType = 'demo' | 'live';
-export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
+/**
+ * Verification status as the API reports it.
+ *
+ * 'verified' is what the backend returns for the new kyc app; 'approved' is
+ * the legacy single-document value. Both are accepted so the badge renders
+ * correctly whichever flow the account came through.
+ */
+export type KycStatus = 'none' | 'pending' | 'verified' | 'approved' | 'rejected';
 
 export interface KycRecord {
   id: number;
@@ -28,6 +36,16 @@ export interface AccountStatus {
   kycStatus: KycStatus;
   kyc: KycRecord[];
   fees: FeeConfig;
+  /**
+   * The same values under their canonical names. The API returns both
+   * shapes and they are kept in sync server-side, so a client can use
+   * whichever it prefers without the two drifting apart.
+   */
+  account_type: AccountType;
+  balance: number;
+  currency: string;
+  verification_status: KycStatus;
+  can_trade_live: boolean;
 }
 
 export interface Withdrawal {
@@ -63,8 +81,11 @@ export interface CreateWithdrawalResponse {
 }
 
 // TODO: confirm against real backend
-export function getAccountStatus(token: string): Promise<AccountStatus> {
-  return request<AccountStatus>('/account/', { token });
+export function getAccountStatus(
+  token: string,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {}
+): Promise<AccountStatus> {
+  return request<AccountStatus>('/account/', { token, ...options });
 }
 
 // TODO: confirm against real backend
@@ -125,8 +146,11 @@ export function fundLiveAccount(token: string, amount: number): Promise<FundResp
 }
 
 // TODO: confirm against real backend
-export function getMyWithdrawals(token: string): Promise<Withdrawal[]> {
-  return request<Withdrawal[]>('/account/withdrawals/', { token });
+export function getMyWithdrawals(
+  token: string,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {}
+): Promise<Withdrawal[]> {
+  return request<Withdrawal[]>('/account/withdrawals/', { token, ...options });
 }
 
 // TODO: confirm against real backend

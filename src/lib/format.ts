@@ -24,14 +24,35 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
  * Defensive on purpose: the backend may send the balance as a number, a
  * numeric string, or (historically) nothing at all -- and printing a raw
  * fallback like "NO" was exactly the bug this replaces. Anything that is not
- * a finite number renders as $0.00.
+ * a finite number renders as zero.
+ *
+ * The currency defaults to USD but the wallet is denominated in NGN, so
+ * callers that know the account currency pass it in. An unknown currency
+ * code falls back to USD rather than throwing.
  */
-export function formatCurrency(value: unknown): string {
+export function formatCurrency(value: unknown, currency = 'USD'): string {
   const n = typeof value === 'number' ? value : Number(value);
+  const formatter = currencyFormatterFor(currency);
   if (!Number.isFinite(n)) {
-    return currencyFormatter.format(0);
+    return formatter.format(0);
   }
-  return currencyFormatter.format(n);
+  return formatter.format(n);
+}
+
+function currencyFormatterFor(currency: string): Intl.NumberFormat {
+  if (!currency || currency === 'USD') {
+    return currencyFormatter;
+  }
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    });
+  } catch {
+    // Unknown/invalid currency code -- fall back instead of crashing the
+    // page that wanted to display a balance.
+    return currencyFormatter;
+  }
 }
 
 export function formatMoney(value: number): string {

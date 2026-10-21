@@ -2,25 +2,101 @@ const API_BASE_URL =
   (process.env.REACT_APP_API_URL as string | undefined) ||
   'http://localhost:8000/api';
 
+/**
+ * Default request timeout.
+ *
+ * A request that never settles is the reason the My Account page used to sit
+ * on "Loading..." forever: the server returned a 500 (or never answered at
+ * all) and the promise simply never settled from the page's point of view.
+ * Every request is therefore bounded, and the timeout is reported as a
+ * distinct, retryable error instead of an indefinite spinner.
+ */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
   token?: string | null;
+  /** Milliseconds before the request is aborted. 0 disables the timeout. */
+  timeoutMs?: number;
+  /** Caller-owned abort signal (e.g. a component unmounting). */
+  signal?: AbortSignal;
 }
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** True when the request was aborted by our own timeout. */
+  timedOut: boolean;
+  /** True when the request never reached the server (offline, DNS, CORS). */
+  offline: boolean;
+
+  constructor(
+    message: string,
+    status: number,
+    opts: { timedOut?: boolean; offline?: boolean } = {}
+  ) {
     super(message);
+    this.name = 'ApiError';
     this.status = status;
+    this.timedOut = opts.timedOut ?? false;
+    this.offline = opts.offline ?? false;
   }
+}
+
+/**
+ * True for failures that a second attempt could plausibly fix.
+ *
+ * A 4xx (unauthenticated, forbidden, bad request) is a permanent answer, so
+ * retrying it only delays the error the user needs to see. Timeouts and
+ * transport failures are the opposite: the server may be waking up, or the
+ * network blipped.
+ */
+export function isRetryableError(err: unknown): boolean {
+  if (err instanceof ApiError) {
+    return err.timedOut || err.offline || err.status === 0 || err.status >= 500;
+  }
+  return true;
+}
+
+/**
+ * A short, human-readable description of a failure.
+ *
+ * Never leaks a raw exception message, a stack trace or a URL to the UI --
+ * those go to the console for the developer.
+ */
+export function describeError(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.timedOut) {
+      return 'The server took too long to respond.';
+    }
+    if (err.offline) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+    if (err.status === 401 || err.status === 403) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (err.status >= 500) {
+      return 'The server ran into a problem. Please try again in a moment.';
+    }
+    return err.message || 'Something went wrong. Please try again.';
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return 'Something went wrong. Please try again.';
 }
 
 export async function request<T>(
   path: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, token } = options;
+  const {
+    method = 'GET',
+    body,
+    token,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    signal,
+  } = options;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -28,11 +104,55 @@ export async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  // One controller backs both the timeout and the caller's abort signal, so
+  // the request can be cancelled from either side.
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : null;
+
+  const forwardAbort = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', forwardAbort);
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (timedOut) {
+      throw new ApiError('The server took too long to respond.', 0, {
+        timedOut: true,
+      });
+    }
+    if (signal?.aborted) {
+      // The caller cancelled on purpose (e.g. unmount): not a failure to
+      // show, so it is re-thrown untouched.
+      throw err;
+    }
+    throw new ApiError(
+      'Could not reach the server. Check your connection and try again.',
+      0,
+      { offline: true }
+    );
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', forwardAbort);
+  }
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
@@ -52,5 +172,12 @@ export async function request<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(
+      'The server returned a response the page could not read.',
+      response.status
+    );
+  }
 }
