@@ -29,17 +29,35 @@ export class ApiError extends Error {
   timedOut: boolean;
   /** True when the request never reached the server (offline, DNS, CORS). */
   offline: boolean;
+  /**
+   * Machine-readable error code from the API, e.g. 'kyc_incomplete'.
+   * The server sends this so the UI can react to a specific problem instead
+   * of pattern-matching on the message text.
+   */
+  code: string | null;
+  /**
+   * Machine-readable list of missing fields, when the API reports one.
+   * Empty for every other error.
+   */
+  missing: string[];
 
   constructor(
     message: string,
     status: number,
-    opts: { timedOut?: boolean; offline?: boolean } = {}
+    opts: {
+      timedOut?: boolean;
+      offline?: boolean;
+      code?: string | null;
+      missing?: string[];
+    } = {}
   ) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.timedOut = opts.timedOut ?? false;
     this.offline = opts.offline ?? false;
+    this.code = opts.code ?? null;
+    this.missing = opts.missing ?? [];
   }
 }
 
@@ -156,15 +174,40 @@ export async function request<T>(
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
+    let code: string | null = null;
+    let missing: string[] = [];
     try {
       const data = await response.json();
-      if (data && typeof data.message === 'string') {
-        message = data.message;
+      if (data && typeof data === 'object') {
+        const body = data as {
+          detail?: unknown;
+          message?: unknown;
+          code?: unknown;
+          missing?: unknown;
+        };
+        // The API uses "detail" everywhere now; "message" is still read
+        // because older deployments (and some other endpoints) answer with
+        // it, and a blank error message is worse than a legacy key.
+        const detail =
+          typeof body.detail === 'string' ? body.detail : null;
+        const legacy =
+          typeof body.message === 'string' ? body.message : null;
+        if (detail || legacy) {
+          message = detail || legacy || message;
+        }
+        if (typeof body.code === 'string') {
+          code = body.code;
+        }
+        if (Array.isArray(body.missing)) {
+          missing = body.missing.filter(
+            (item): item is string => typeof item === 'string'
+          );
+        }
       }
     } catch {
       // ignore non-JSON error body
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, { code, missing });
   }
 
   // 204 or empty response

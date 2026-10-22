@@ -1,11 +1,12 @@
-import { request } from './client';
+import { ApiError, request } from './client';
 
 // ---------------------------------------------------------------------------
 // KYC (identity verification) API client.
 //
 // Mirrors the Django `kyc` app endpoints:
 //   GET    /kyc/                -> current status + draft + documents
-//   PUT    /kyc/details/        -> save step 1 (personal details) draft
+//   PUT    /kyc/details/        -> save the draft (personal details and/or
+//                                  the document type + number; partial update)
 //   POST   /kyc/documents/      -> upload one document (multipart)
 //   DELETE /kyc/documents/<id>/ -> remove an uploaded document
 //   POST   /kyc/submit/         -> submit everything for review
@@ -43,6 +44,14 @@ export interface KycStatusResponse {
   details: KycDetails;
   docType: string | null;
   docNumberMasked: string | null;
+  /**
+   * Whether the server holds a document number, and its last four digits.
+   *
+   * The review screen renders from these instead of from browser state, so it
+   * can never show a number the server never received.
+   */
+  hasDocumentNumber: boolean;
+  documentNumberLast4: string;
   documents: KycDocument[];
 }
 
@@ -73,6 +82,23 @@ export function saveKycDetails(
     method: 'PUT',
     token,
     body: details,
+  });
+}
+
+/**
+ * Save the document type and number (step 2 of the wizard).
+ *
+ * The endpoint is a partial update: only the fields sent here are written,
+ * so saving the document never disturbs the personal details from step 1.
+ */
+export function saveKycDocument(
+  token: string,
+  payload: { docType: string; docNumber?: string }
+): Promise<KycStatusResponse> {
+  return request<KycStatusResponse>('/kyc/details/', {
+    method: 'PUT',
+    token,
+    body: payload,
   });
 }
 
@@ -125,14 +151,29 @@ export function uploadKycDocument(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(data as KycStatusResponse);
       } else {
-        const msg =
-          data && typeof (data as { message?: string }).message === 'string'
-            ? (data as { message: string }).message
-            : `Upload failed with status ${xhr.status}`;
-        reject(new Error(msg));
+        // Read the same error body shape as `request()`: "detail" first,
+        // then the legacy "message", plus the machine-readable code.
+        const body = (data ?? {}) as {
+          detail?: unknown;
+          message?: unknown;
+          code?: unknown;
+        };
+        const detail = typeof body.detail === 'string' ? body.detail : null;
+        const legacy = typeof body.message === 'string' ? body.message : null;
+        const code = typeof body.code === 'string' ? body.code : null;
+        reject(
+          new ApiError(
+            detail || legacy || `Upload failed with status ${xhr.status}`,
+            xhr.status,
+            { code }
+          )
+        );
       }
     };
-    xhr.onerror = () => reject(new Error('Upload failed. Check your connection.'));
+    xhr.onerror = () =>
+      reject(new ApiError('Upload failed. Check your connection.', 0, {
+        offline: true,
+      }));
     xhr.send(form);
   });
 }

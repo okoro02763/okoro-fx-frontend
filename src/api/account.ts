@@ -120,8 +120,10 @@ export function submitKyc(
   }).then(async (resp) => {
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
+      const body = (data ?? {}) as { detail?: string; message?: string };
       throw new Error(
-        (data && typeof data.message === 'string' && data.message) ||
+        (typeof body.detail === 'string' && body.detail) ||
+          (typeof body.message === 'string' && body.message) ||
           `Request failed with status ${resp.status}`
       );
     }

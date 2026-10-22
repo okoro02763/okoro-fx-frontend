@@ -6,13 +6,14 @@ import Card from '../components/Card';
 import Field, { inputStyle } from '../components/Field';
 import StatusBadge from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
-import { request } from '../api/client';
+import { ApiError, describeError, request } from '../api/client';
 import type { AccountStatus } from '../api/account';
 import {
   deleteKycDocument,
   emptyKycDetails,
   getKyc,
   saveKycDetails,
+  saveKycDocument,
   submitKyc,
   uploadKycDocument,
   type KycDetails,
@@ -73,6 +74,43 @@ function fmtBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Human labels for the missing items the API reports on a failed submit.
+ * The keys are the ones `kyc/views.py::_missing_items` returns.
+ */
+const MISSING_LABELS: Record<string, string> = {
+  full_name: 'Full legal name',
+  date_of_birth: 'Date of birth',
+  country: 'Country',
+  phone: 'Phone number',
+  address_line: 'Residential address',
+  city: 'City',
+  state: 'State / province',
+  postal_code: 'Postal code',
+  document_type: 'Document type',
+  document_number: 'Document number',
+  id_front: 'Front of your document',
+  id_back: 'Back of your document',
+  selfie: 'Selfie holding your document',
+};
+
+/** Which step of the wizard fixes a given missing item. */
+function stepForMissing(key: string): Step {
+  if (key === 'document_type' || key === 'document_number') return 2;
+  if (key === 'id_front' || key === 'id_back' || key === 'selfie') return 3;
+  return 1;
+}
+
+/** Label for a document type value, whichever country list it came from. */
+function docTypeLabel(value: string | null | undefined): string {
+  if (!value) return '';
+  const all = [
+    ...Object.values(DOC_TYPES_BY_COUNTRY).flat(),
+    ...DEFAULT_DOC_TYPES,
+  ];
+  return all.find((d) => d.value === value)?.label || value;
+}
+
 export default function VerificationPage() {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -83,6 +121,11 @@ export default function VerificationPage() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Items the server reported as missing when a submission was rejected.
+   * Rendered as a list with a button that jumps to the step that fixes them.
+   */
+  const [missing, setMissing] = useState<string[]>([]);
 
   const [kyc, setKyc] = useState<KycStatusResponse | null>(null);
   const [details, setDetails] = useState<KycDetails>(emptyKycDetails);
@@ -111,12 +154,15 @@ export default function VerificationPage() {
       .then((res) => {
         setKyc(res);
         setDetails({ ...emptyKycDetails(), ...res.details });
+        // The document type lives on the server; the local default is only a
+        // placeholder for a profile that has never been touched.
+        if (res.docType) setDocType(res.docType);
         if (res.status === 'pending' || res.status === 'verified' || res.status === 'rejected') {
           setPhase('status');
         }
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Could not load verification status.');
+        setError(describeError(err));
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,6 +195,26 @@ export default function VerificationPage() {
     return Object.keys(e).length === 0;
   };
 
+  /**
+   * Re-read the profile from the server.
+   *
+   * Every save is followed by this so the wizard always renders what the
+   * server actually holds. The previous version kept everything in browser
+   * state, which is how a document number could look filled in on the review
+   * screen while the server had never received it.
+   */
+  const refreshKyc = useCallback(async (): Promise<KycStatusResponse | null> => {
+    if (!token) return null;
+    try {
+      const res = await getKyc(token);
+      setKyc(res);
+      return res;
+    } catch (err) {
+      setError(describeError(err));
+      return null;
+    }
+  }, [token]);
+
   const persistDetails = async (): Promise<boolean> => {
     if (!token) return false;
     setSaving(true);
@@ -156,9 +222,41 @@ export default function VerificationPage() {
     try {
       const res = await saveKycDetails(token, details);
       setKyc(res);
+      await refreshKyc();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save your details.');
+      setError(describeError(err));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Save the document type and number (step 2).
+   *
+   * This is the call the wizard used to skip: "Continue" only moved to the
+   * next screen, so the number never reached the server and the submission
+   * was rejected with "Please enter your document number first."
+   *
+   * The number is only sent when the field is filled in. A profile that
+   * already holds a number keeps it when the field is left blank -- the
+   * server never lets an empty value overwrite a stored one.
+   */
+  const persistDocument = async (): Promise<boolean> => {
+    if (!token) return false;
+    setSaving(true);
+    setError(null);
+    try {
+      const number = docNumber.trim();
+      await saveKycDocument(
+        token,
+        number ? { docType, docNumber: number } : { docType }
+      );
+      await refreshKyc();
+      return true;
+    } catch (err) {
+      setError(describeError(err));
       return false;
     } finally {
       setSaving(false);
@@ -176,10 +274,19 @@ export default function VerificationPage() {
     if (step === 2) {
       const e: FieldErrors = {};
       if (!docType) e.docType = 'Choose a document type.';
-      if (!numberOnly && !docNumber.trim()) e.docNumber = 'Document number is required.';
-      if (numberOnly && !docNumber.trim()) e.docNumber = 'This number is required.';
+      // A number is only required when the server does not have one yet.
+      if (!kyc?.hasDocumentNumber && !docNumber.trim()) {
+        e.docNumber = numberOnly
+          ? 'This number is required.'
+          : 'Document number is required.';
+      }
       setErrors(e);
       if (Object.keys(e).length > 0) return;
+      // Save before moving on. If the server rejects it, stay on this step
+      // and show why -- the number has to reach the server for the review
+      // screen and the submission to mean anything.
+      const ok = await persistDocument();
+      if (!ok) return;
       setStep(3);
       return;
     }
@@ -219,7 +326,7 @@ export default function VerificationPage() {
       if (kind === 'selfie') setSelfieFile(file);
       setErrors((e) => ({ ...e, [kind]: '' }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
+      setError(describeError(err));
     } finally {
       setUploadKind(null);
       setUploadPct(null);
@@ -238,7 +345,7 @@ export default function VerificationPage() {
       if (kind === 'id_back') setBackFile(null);
       if (kind === 'selfie') setSelfieFile(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove the document.');
+      setError(describeError(err));
     }
   };
 
@@ -246,15 +353,36 @@ export default function VerificationPage() {
     if (!token || !consent) return;
     setSubmitting(true);
     setError(null);
+    setMissing([]);
     try {
       const res = await submitKyc(token);
       setKyc(res);
       setPhase('status');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not submit for review.');
+      if (err instanceof ApiError && err.code === 'kyc_incomplete') {
+        // The server lists everything that is still missing, so the user sees
+        // the whole list at once instead of one problem per attempt.
+        setMissing(err.missing);
+        setError(
+          err.missing.length
+            ? 'Some information is still missing. Use the button below to fill it in.'
+            : err.message
+        );
+      } else {
+        setError(describeError(err));
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  /** Jump to the step that fixes the first missing item. */
+  const goToMissing = () => {
+    const first = missing[0];
+    if (!first) return;
+    setMissing([]);
+    setError(null);
+    setStep(stepForMissing(first));
   };
 
   const handleSwitchToLive = useCallback(async () => {
@@ -267,9 +395,28 @@ export default function VerificationPage() {
       });
       navigate('/account');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not switch to the live account.');
+      setError(describeError(err));
     }
   }, [token, navigate]);
+
+  // The review screen is rendered from the server's copy of the profile, not
+  // from browser state. That is the whole point: the wizard used to show the
+  // number the user had typed even though the server had never received it.
+  const serverDetails = kyc?.details ?? details;
+  const serverDocType = kyc?.docType ?? null;
+  const serverHasNumber = !!kyc?.hasDocumentNumber;
+  const serverLast4 = kyc?.documentNumberLast4 ?? '';
+  const serverKinds = new Set((kyc?.documents ?? []).map((d) => d.kind));
+  const serverNumberOnly = !!serverDocType && NUMBER_ONLY_TYPES.has(serverDocType);
+  const serverNeedsBack = !!serverDocType && HAS_BACK_TYPES.has(serverDocType);
+
+  // The full number is never sent back by the API (only its last four
+  // digits), so the field starts empty when a number is already stored.
+  const numberHint = kyc?.hasDocumentNumber
+    ? `A number ending in ${kyc.documentNumberLast4} is already saved. Leave this blank to keep it, or type a new number to replace it.`
+    : docType === 'bvn'
+    ? 'Your BVN is encrypted at rest and never shown in full again.'
+    : undefined;
 
   if (loading) {
     return (
@@ -353,6 +500,7 @@ export default function VerificationPage() {
 
       {error && (
         <div
+          role="alert"
           style={{
             fontFamily: 'Inter',
             fontSize: '13px',
@@ -365,6 +513,32 @@ export default function VerificationPage() {
           }}
         >
           {error}
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <div
+          role="alert"
+          style={{
+            fontFamily: 'Inter',
+            fontSize: '13px',
+            color: 'var(--text)',
+            padding: '12px 16px',
+            backgroundColor: 'var(--panel)',
+            border: '1px solid var(--gold)',
+            borderRadius: 'var(--radius-input)',
+            marginBottom: '16px',
+          }}
+        >
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Still needed:</p>
+          <ul style={{ margin: '0 0 12px', paddingLeft: '18px', lineHeight: 1.7 }}>
+            {missing.map((key) => (
+              <li key={key}>{MISSING_LABELS[key] || key}</li>
+            ))}
+          </ul>
+          <button type="button" onClick={goToMissing} style={primaryBtnStyle}>
+            Fix this
+          </button>
         </div>
       )}
 
@@ -479,11 +653,7 @@ export default function VerificationPage() {
 
           <Field
             label={numberOnly ? 'Document number' : 'Document number (as printed)'}
-            hint={
-              docType === 'bvn'
-                ? 'Your BVN is encrypted at rest and never shown in full again.'
-                : undefined
-            }
+            hint={numberHint}
           >
             <input
               value={docNumber}
@@ -491,7 +661,7 @@ export default function VerificationPage() {
                 setDocNumber(e.target.value);
                 setErrors((er) => ({ ...er, docNumber: '' }));
               }}
-              placeholder="e.g. 01234567890"
+              placeholder={kyc?.hasDocumentNumber ? 'Leave blank to keep the saved number' : 'e.g. 01234567890'}
               style={{ ...inputStyle, fontFamily: 'JetBrains Mono' }}
             />
             {errors.docNumber && <InlineError text={errors.docNumber} />}
@@ -590,25 +760,36 @@ export default function VerificationPage() {
             title="Personal details"
             onEdit={() => setStep(1)}
             rows={[
-              ['Full name', details.fullName],
-              ['Date of birth', details.dateOfBirth],
-              ['Country', details.country],
-              ['Phone', details.phone],
-              ['Address', `${details.addressLine}, ${details.city}, ${details.state} ${details.postalCode}`],
+              ['Full name', serverDetails.fullName],
+              ['Date of birth', serverDetails.dateOfBirth],
+              ['Country', serverDetails.country],
+              ['Phone', serverDetails.phone],
+              [
+                'Address',
+                `${serverDetails.addressLine}, ${serverDetails.city}, ${serverDetails.state} ${serverDetails.postalCode}`,
+              ],
             ]}
           />
           <ReviewSection
             title="Identity document"
             onEdit={() => setStep(2)}
             rows={[
-              ['Type', docTypes.find((d) => d.value === docType)?.label || docType],
-              ['Number', docNumber ? `•••• ${docNumber.slice(-4)}` : '—'],
+              ['Type', docTypeLabel(serverDocType)],
+              [
+                'Number',
+                serverHasNumber ? `•••• ${serverLast4}` : 'Not saved yet',
+              ],
               [
                 'Files',
-                numberOnly
+                serverNumberOnly
                   ? 'Number entry only'
-                  : [frontFile || kyc?.documents.some((d) => d.kind === 'id_front') ? 'Front ✓' : 'Front ✗',
-                     needsBack && (backFile || kyc?.documents.some((d) => d.kind === 'id_back')) ? 'Back ✓' : needsBack ? 'Back ✗' : null,
+                  : [
+                      serverKinds.has('id_front') ? 'Front ✓' : 'Front ✗',
+                      serverNeedsBack
+                        ? serverKinds.has('id_back')
+                          ? 'Back ✓'
+                          : 'Back ✗'
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(', '),
@@ -619,7 +800,7 @@ export default function VerificationPage() {
             title="Selfie"
             onEdit={() => setStep(3)}
             rows={[
-              ['Photo', selfieFile || kyc?.documents.some((d) => d.kind === 'selfie') ? 'Uploaded ✓' : 'Missing ✗'],
+              ['Photo', serverKinds.has('selfie') ? 'Uploaded ✓' : 'Missing ✗'],
             ]}
           />
 
