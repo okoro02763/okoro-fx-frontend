@@ -1112,10 +1112,13 @@ function ReviewSection({
   title,
   rows,
   onEdit,
+  incomplete,
 }: {
   title: string;
   rows: [string, string][];
   onEdit: () => void;
+  /** True when the server reported this area as still missing. */
+  incomplete?: boolean;
 }) {
   return (
     <div style={{ marginBottom: '18px' }}>
@@ -1174,6 +1177,28 @@ function ReviewSection({
           </div>
         ))}
       </div>
+      {incomplete && (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-input)',
+            border: '1px solid var(--loss)',
+            backgroundColor: 'var(--panel)',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Inter',
+              fontSize: '12px',
+              color: 'var(--loss)',
+            }}
+          >
+            This part of your verification is still incomplete. You can edit it
+            now, or after fixing the missing details come back to submit.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

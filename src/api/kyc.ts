@@ -52,6 +52,13 @@ export interface KycStatusResponse {
    */
   hasDocumentNumber: boolean;
   documentNumberLast4: string;
+  /**
+   * Canonical snake_case aliases of the two fields above, returned by the same
+   * endpoint so clients can read whichever shape they prefer.
+   */
+  has_document_number?: boolean;
+  document_number_last4?: string;
+  doc_type?: string | null;
   documents: KycDocument[];
 }
 
