@@ -1,3 +1,5 @@
+import { reportApiFailure } from '../lib/errorReporter';
+
 const API_BASE_URL =
   (process.env.REACT_APP_API_URL as string | undefined) ||
   'http://localhost:8000/api';
@@ -115,6 +117,8 @@ export async function request<T>(
     timeoutMs = DEFAULT_TIMEOUT_MS,
     signal,
   } = options;
+  // Used only for the error report: how long the failed call took.
+  const startedAt = Date.now();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -152,7 +156,11 @@ export async function request<T>(
       signal: controller.signal,
     });
   } catch (err) {
+    const durationMs = Date.now() - startedAt;
     if (timedOut) {
+      // A timeout is a 5xx-class failure from the user's point of view: the
+      // page never got an answer. Report it, then surface a retryable error.
+      reportApiFailure({ method, path, status: 0, durationMs });
       throw new ApiError('The server took too long to respond.', 0, {
         timedOut: true,
       });
@@ -162,6 +170,7 @@ export async function request<T>(
       // show, so it is re-thrown untouched.
       throw err;
     }
+    reportApiFailure({ method, path, status: 0, durationMs });
     throw new ApiError(
       'Could not reach the server. Check your connection and try again.',
       0,
@@ -173,6 +182,17 @@ export async function request<T>(
   }
 
   if (!response.ok) {
+    // 5xx means the backend broke. Report endpoint/status/duration only --
+    // never the request body, query string or credentials. A 4xx is normal
+    // application flow and is intentionally not reported.
+    if (response.status >= 500) {
+      reportApiFailure({
+        method,
+        path,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
+    }
     let message = `Request failed with status ${response.status}`;
     let code: string | null = null;
     let missing: string[] = [];
