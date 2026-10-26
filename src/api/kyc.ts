@@ -59,6 +59,10 @@ export interface KycStatusResponse {
   has_document_number?: boolean;
   document_number_last4?: string;
   doc_type?: string | null;
+  /** Which upload slots the server actually holds (set on every response). */
+  has_id_front?: boolean;
+  has_id_back?: boolean;
+  has_selfie?: boolean;
   documents: KycDocument[];
 }
 
@@ -185,14 +189,24 @@ export function uploadKycDocument(
   });
 }
 
-export function deleteKycDocument(
+export async function deleteKycDocument(
   token: string,
   documentId: number
 ): Promise<KycStatusResponse> {
-  return request<KycStatusResponse>(`/kyc/documents/${documentId}/`, {
-    method: 'DELETE',
-    token,
-  });
+  try {
+    return await request<KycStatusResponse>(`/kyc/documents/${documentId}/`, {
+      method: 'DELETE',
+      token,
+    });
+  } catch (err) {
+    // A delete is idempotent from the user's point of view. If the document is
+    // already gone (a retry, a double click, another tab), report success and
+    // re-read the profile instead of showing "not found".
+    if (err instanceof ApiError && err.status === 404) {
+      return getKyc(token);
+    }
+    throw err;
+  }
 }
 
 export function submitKyc(token: string): Promise<KycStatusResponse> {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Camera, CheckCircle2, FileText, Image, X } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
@@ -96,8 +96,11 @@ const MISSING_LABELS: Record<string, string> = {
 
 /** Which step of the wizard fixes a given missing item. */
 function stepForMissing(key: string): Step {
+  // The front/back pickers live on the identity-document step; only the
+  // selfie is on step 3.
   if (key === 'document_type' || key === 'document_number') return 2;
-  if (key === 'id_front' || key === 'id_back' || key === 'selfie') return 3;
+  if (key === 'id_front' || key === 'id_back') return 2;
+  if (key === 'selfie') return 3;
   return 1;
 }
 
@@ -138,6 +141,11 @@ export default function VerificationPage() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [uploadKind, setUploadKind] = useState<KycDocKind | null>(null);
+  // Which slot is currently being deleted. Drives the disabled state of the
+  // remove button; the ref is the synchronous guard that actually stops a
+  // second request when the button is clicked twice before React re-renders.
+  const [deletingKind, setDeletingKind] = useState<KycDocKind | null>(null);
+  const deletingRef = useRef<Set<KycDocKind>>(new Set());
   const [consent, setConsent] = useState(false);
 
   const docTypes = useMemo(
@@ -208,6 +216,8 @@ export default function VerificationPage() {
     try {
       const res = await getKyc(token);
       setKyc(res);
+      // The fresh profile supersedes any list from a previous failed submit.
+      setMissing([]);
       return res;
     } catch (err) {
       setError(describeError(err));
@@ -291,11 +301,17 @@ export default function VerificationPage() {
       return;
     }
     if (step === 3) {
-      if (!selfieFile) {
+      // A selfie already stored on the server is just as valid as one picked
+      // in this browser session (for example when the user comes back through
+      // Edit, or reloads the page mid-wizard).
+      if (!selfieFile && !kyc?.documents.some((d) => d.kind === 'selfie')) {
         setErrors({ selfie: 'A selfie holding your document is required.' });
         return;
       }
       setErrors({});
+      // Fetch once more before rendering the review screen, so it shows the
+      // server's state at the moment of submission rather than a cached copy.
+      await refreshKyc();
       setStep(4);
     }
   };
@@ -315,9 +331,14 @@ export default function VerificationPage() {
     setUploadKind(kind);
     setUploadPct(0);
     try {
+      const number = docNumber.trim();
       const res = await uploadKycDocument(
         token,
-        { kind, docType, docNumber: numberOnly ? docNumber : undefined, file },
+        // Send the number with every upload, not only for NIN/BVN. The file
+        // upload is a second safety net for the exact flow in the bug report:
+        // the user edits the number, replaces the front image, and the save
+        // request is otherwise the only thing that carries it.
+        { kind, docType, docNumber: number || undefined, file },
         (p) => setUploadPct(Math.round(p.fraction * 100))
       );
       setKyc(res);
@@ -325,6 +346,9 @@ export default function VerificationPage() {
       if (kind === 'id_back') setBackFile(file);
       if (kind === 'selfie') setSelfieFile(file);
       setErrors((e) => ({ ...e, [kind]: '' }));
+      // Re-read the profile: the review screen must render only what the
+      // server now holds, including the document number from an earlier step.
+      await refreshKyc();
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -335,22 +359,93 @@ export default function VerificationPage() {
 
   const removeDocument = async (kind: KycDocKind) => {
     if (!token || !kyc) return;
+    // Ref, not state: state updates are asynchronous, so a rapid double click
+    // would still fire two DELETEs (the first succeeded, the second 404s).
+    if (deletingRef.current.has(kind)) return;
+    deletingRef.current.add(kind);
+    setDeletingKind(kind);
+    setError(null);
     const doc = kyc.documents.find((d) => d.kind === kind);
     try {
       if (doc) {
-        const res = await deleteKycDocument(token, doc.id);
-        setKyc(res);
+        await deleteKycDocument(token, doc.id);
+        await refreshKyc();
       }
       if (kind === 'id_front') setFrontFile(null);
       if (kind === 'id_back') setBackFile(null);
       if (kind === 'selfie') setSelfieFile(null);
     } catch (err) {
       setError(describeError(err));
+    } finally {
+      deletingRef.current.delete(kind);
+      setDeletingKind(null);
     }
   };
 
+  // The review screen is rendered from the server's copy of the profile, not
+  // from browser state. That is the whole point: the wizard used to show the
+  // number the user had typed even though the server had never received it.
+  // When the fetch failed there is no server copy, so show an empty profile
+  // (and the error) rather than falling back to local state.
+  const serverDetails = kyc?.details ?? emptyKycDetails();
+  const serverDocType = kyc?.docType ?? null;
+  const serverHasNumber = !!kyc?.hasDocumentNumber;
+  const serverLast4 = kyc?.documentNumberLast4 ?? '';
+  const serverKinds = new Set((kyc?.documents ?? []).map((d) => d.kind));
+  const serverNumberOnly = !!serverDocType && NUMBER_ONLY_TYPES.has(serverDocType);
+  const serverNeedsBack = !!serverDocType && HAS_BACK_TYPES.has(serverDocType);
+
+  // Same completeness rules as `kyc/views.py::_missing_items`, evaluated
+  // against GET /api/kyc/ so the review screen knows something is missing
+  // *before* the user presses Submit. A number that exists only in browser
+  // state therefore can never be presented as saved.
+  const reviewMissing: string[] = [];
+  if (!serverDetails.fullName) reviewMissing.push('full_name');
+  if (!serverDetails.dateOfBirth) reviewMissing.push('date_of_birth');
+  if (!serverDetails.country) reviewMissing.push('country');
+  if (!serverDetails.phone) reviewMissing.push('phone');
+  if (!serverDetails.addressLine) reviewMissing.push('address_line');
+  if (!serverDetails.city) reviewMissing.push('city');
+  if (!serverDetails.state) reviewMissing.push('state');
+  if (!serverDetails.postalCode) reviewMissing.push('postal_code');
+  if (!serverDocType) reviewMissing.push('document_type');
+  if (!serverHasNumber) reviewMissing.push('document_number');
+  if (!serverKinds.has('selfie')) reviewMissing.push('selfie');
+  if (serverDocType && !serverNumberOnly) {
+    if (!serverKinds.has('id_front')) reviewMissing.push('id_front');
+    if (serverNeedsBack && !serverKinds.has('id_back')) reviewMissing.push('id_back');
+  }
+
+  const personalIncomplete = reviewMissing.some((key) =>
+    ['full_name', 'date_of_birth', 'country', 'phone', 'address_line', 'city', 'state', 'postal_code'].includes(key)
+  );
+  const identityIncomplete = reviewMissing.some((key) =>
+    ['document_type', 'document_number', 'id_front', 'id_back'].includes(key)
+  );
+  const selfieIncomplete = reviewMissing.includes('selfie');
+  const canSubmit = reviewMissing.length === 0;
+
+  // A server-reported failure wins; otherwise the review screen shows what it
+  // can already tell is missing from the profile it fetched.
+  const effectiveMissing = missing.length ? missing : step === 4 ? reviewMissing : [];
+
+  // The full number is never sent back by the API (only its last four
+  // digits), so the field starts empty when a number is already stored.
+  const numberHint = kyc?.hasDocumentNumber
+    ? `A number ending in ${kyc.documentNumberLast4} is already saved. Leave this blank to keep it, or type a new number to replace it.`
+    : docType === 'bvn'
+    ? 'Your BVN is encrypted at rest and never shown in full again.'
+    : undefined;
+
   const handleSubmit = async () => {
     if (!token || !consent) return;
+    // Belt and braces: the button is disabled while something is missing, but
+    // an Enter key or a stale click must not bypass the check.
+    if (!canSubmit) {
+      setMissing(reviewMissing);
+      setError('Some information is still missing. Use the button below to fill it in.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setMissing([]);
@@ -376,9 +471,9 @@ export default function VerificationPage() {
     }
   };
 
-  /** Jump to the step that fixes the first missing item. */
-  const goToMissing = () => {
-    const first = missing[0];
+  /** Jump to the step that fixes a missing item (the first one by default). */
+  const goToMissing = (key?: string) => {
+    const first = key || effectiveMissing[0];
     if (!first) return;
     setMissing([]);
     setError(null);
@@ -398,25 +493,6 @@ export default function VerificationPage() {
       setError(describeError(err));
     }
   }, [token, navigate]);
-
-  // The review screen is rendered from the server's copy of the profile, not
-  // from browser state. That is the whole point: the wizard used to show the
-  // number the user had typed even though the server had never received it.
-  const serverDetails = kyc?.details ?? details;
-  const serverDocType = kyc?.docType ?? null;
-  const serverHasNumber = !!kyc?.hasDocumentNumber;
-  const serverLast4 = kyc?.documentNumberLast4 ?? '';
-  const serverKinds = new Set((kyc?.documents ?? []).map((d) => d.kind));
-  const serverNumberOnly = !!serverDocType && NUMBER_ONLY_TYPES.has(serverDocType);
-  const serverNeedsBack = !!serverDocType && HAS_BACK_TYPES.has(serverDocType);
-
-  // The full number is never sent back by the API (only its last four
-  // digits), so the field starts empty when a number is already stored.
-  const numberHint = kyc?.hasDocumentNumber
-    ? `A number ending in ${kyc.documentNumberLast4} is already saved. Leave this blank to keep it, or type a new number to replace it.`
-    : docType === 'bvn'
-    ? 'Your BVN is encrypted at rest and never shown in full again.'
-    : undefined;
 
   if (loading) {
     return (
@@ -516,7 +592,7 @@ export default function VerificationPage() {
         </div>
       )}
 
-      {missing.length > 0 && (
+      {effectiveMissing.length > 0 && (
         <div
           role="alert"
           style={{
@@ -530,13 +606,31 @@ export default function VerificationPage() {
             marginBottom: '16px',
           }}
         >
-          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Still needed:</p>
+          <p style={{ margin: '0 0 8px', fontWeight: 600 }}>Please complete:</p>
           <ul style={{ margin: '0 0 12px', paddingLeft: '18px', lineHeight: 1.7 }}>
-            {missing.map((key) => (
-              <li key={key}>{MISSING_LABELS[key] || key}</li>
+            {effectiveMissing.map((key) => (
+              <li key={key}>
+                {MISSING_LABELS[key] || key}{' '}
+                <button
+                  type="button"
+                  onClick={() => goToMissing(key)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    fontFamily: 'Inter',
+                    fontSize: '12px',
+                    color: 'var(--gold)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Fix
+                </button>
+              </li>
             ))}
           </ul>
-          <button type="button" onClick={goToMissing} style={primaryBtnStyle}>
+          <button type="button" onClick={() => goToMissing()} style={primaryBtnStyle}>
             Fix this
           </button>
         </div>
@@ -676,6 +770,7 @@ export default function VerificationPage() {
                 file={frontFile}
                 existing={kyc?.documents.find((d) => d.kind === 'id_front')}
                 uploading={uploadKind === 'id_front'}
+                removing={deletingKind === 'id_front'}
                 uploadPct={uploadPct}
                 onUpload={uploadFile}
                 onRemove={removeDocument}
@@ -689,6 +784,7 @@ export default function VerificationPage() {
                     file={backFile}
                     existing={kyc?.documents.find((d) => d.kind === 'id_back')}
                     uploading={uploadKind === 'id_back'}
+                    removing={deletingKind === 'id_back'}
                     uploadPct={uploadPct}
                     onUpload={uploadFile}
                     onRemove={removeDocument}
@@ -745,6 +841,7 @@ export default function VerificationPage() {
             file={selfieFile}
             existing={kyc?.documents.find((d) => d.kind === 'selfie')}
             uploading={uploadKind === 'selfie'}
+            removing={deletingKind === 'selfie'}
             uploadPct={uploadPct}
             onUpload={uploadFile}
             onRemove={removeDocument}
@@ -759,6 +856,7 @@ export default function VerificationPage() {
           <ReviewSection
             title="Personal details"
             onEdit={() => setStep(1)}
+            incomplete={personalIncomplete}
             rows={[
               ['Full name', serverDetails.fullName],
               ['Date of birth', serverDetails.dateOfBirth],
@@ -773,6 +871,7 @@ export default function VerificationPage() {
           <ReviewSection
             title="Identity document"
             onEdit={() => setStep(2)}
+            incomplete={identityIncomplete}
             rows={[
               ['Type', docTypeLabel(serverDocType)],
               [
@@ -799,6 +898,7 @@ export default function VerificationPage() {
           <ReviewSection
             title="Selfie"
             onEdit={() => setStep(3)}
+            incomplete={selfieIncomplete}
             rows={[
               ['Photo', serverKinds.has('selfie') ? 'Uploaded ✓' : 'Missing ✗'],
             ]}
@@ -862,8 +962,13 @@ export default function VerificationPage() {
               }
               handleSubmit();
             }}
-            disabled={submitting}
-            style={{ ...primaryBtnStyle, opacity: submitting ? 0.6 : 1 }}
+            disabled={submitting || !canSubmit}
+            title={!canSubmit ? 'Complete the missing items first' : undefined}
+            style={{
+              ...primaryBtnStyle,
+              opacity: submitting || !canSubmit ? 0.6 : 1,
+              cursor: submitting || !canSubmit ? 'not-allowed' : 'pointer',
+            }}
           >
             {submitting ? 'Submitting…' : 'Submit for review'}
           </button>
@@ -899,6 +1004,7 @@ function UploadSlot({
   file,
   existing,
   uploading,
+  removing,
   uploadPct,
   onUpload,
   onRemove,
@@ -909,6 +1015,7 @@ function UploadSlot({
   file: File | null;
   existing?: KycDocument;
   uploading: boolean;
+  removing?: boolean;
   uploadPct: number | null;
   onUpload: (kind: KycDocKind, file: File) => void;
   onRemove: (kind: KycDocKind) => void;
@@ -1016,13 +1123,16 @@ function UploadSlot({
           <button
             type="button"
             onClick={() => onRemove(kind)}
+            disabled={removing}
             aria-label={`Remove ${label}`}
+            aria-busy={removing || undefined}
             style={{
               background: 'none',
               border: '1px solid var(--border)',
               borderRadius: '8px',
               padding: '6px',
-              cursor: 'pointer',
+              cursor: removing ? 'wait' : 'pointer',
+              opacity: removing ? 0.5 : 1,
               display: 'flex',
             }}
           >
