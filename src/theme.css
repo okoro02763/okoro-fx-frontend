@@ -166,3 +166,99 @@
 .kt-fade {
   animation: kt-fade-in 0.15s ease-out;
 }
+
+/* ---------------------------------------------------------------------------
+ * Identity verification (KYC) wizard.
+ *
+ * The page is built mostly from inline styles, so these classes only carry the
+ * rules that have to change at phone widths: the personal-details grid
+ * collapses to one column, form actions become full-width thumb targets, and
+ * the Back / Continue pair stacks with the primary action on top.
+ * ------------------------------------------------------------------------- */
+.kyc-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.kyc-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.kyc-remove-btn {
+  padding: 6px;
+}
+
+.kyc-fix-btn {
+  padding: 0;
+}
+
+.kyc-review-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kyc-review-value {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .kyc-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* The DOM order is Back then Continue; reversing keeps the primary
+     action (Continue / Submit) at the top of the stack. */
+  .kyc-nav {
+    flex-direction: column-reverse;
+  }
+
+  .kyc-nav > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Upload pickers span the row so they are easy to hit with a thumb. */
+  .kyc-upload-actions > label {
+    flex: 1 1 100%;
+    justify-content: center;
+    min-height: 46px;
+  }
+
+  .kyc-remove-btn {
+    padding: 10px;
+  }
+
+  /* Give the inline "Fix" links a proper tap target. */
+  .kyc-fix-btn {
+    padding: 6px 2px;
+    margin: -6px 0;
+  }
+
+  /* Status-screen actions become full-width on a phone. */
+  .kyc-cta {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
+
+/* On the narrowest phones a label/value row is easier to read stacked. */
+@media (max-width: 480px) {
+  .kyc-review-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .kyc-review-value {
+    text-align: left;
+  }
+}

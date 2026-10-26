@@ -539,6 +539,8 @@ export default function VerificationPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '4px 12px',
             marginBottom: '8px',
           }}
         >
@@ -614,10 +616,10 @@ export default function VerificationPage() {
                 <button
                   type="button"
                   onClick={() => goToMissing(key)}
+                  className="kyc-fix-btn"
                   style={{
                     background: 'none',
                     border: 'none',
-                    padding: 0,
                     fontFamily: 'Inter',
                     fontSize: '12px',
                     color: 'var(--gold)',
@@ -630,7 +632,7 @@ export default function VerificationPage() {
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => goToMissing()} style={primaryBtnStyle}>
+          <button type="button" onClick={() => goToMissing()} className="kyc-cta" style={primaryBtnStyle}>
             Fix this
           </button>
         </div>
@@ -638,7 +640,7 @@ export default function VerificationPage() {
 
       {step === 1 && (
         <Card title="Personal details">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          <div className="kyc-fields-grid">
             <Field label="Full legal name">
               <input
                 value={details.fullName}
@@ -932,7 +934,7 @@ export default function VerificationPage() {
       )}
 
       {/* Nav buttons */}
-      <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
+      <div className="kyc-nav">
         {step > 1 && (
           <button
             type="button"
@@ -1126,11 +1128,11 @@ function UploadSlot({
             disabled={removing}
             aria-label={`Remove ${label}`}
             aria-busy={removing || undefined}
+            className="kyc-remove-btn"
             style={{
               background: 'none',
               border: '1px solid var(--border)',
               borderRadius: '8px',
-              padding: '6px',
               cursor: removing ? 'wait' : 'pointer',
               opacity: removing ? 0.5 : 1,
               display: 'flex',
@@ -1140,7 +1142,7 @@ function UploadSlot({
           </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="kyc-upload-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <label
             style={{
               display: 'inline-flex',
@@ -1269,18 +1271,35 @@ function ReviewSection({
         {rows.map(([k, v], i) => (
           <div
             key={k}
+            className="kyc-review-row"
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '12px',
               padding: '10px 14px',
               backgroundColor: i % 2 ? 'var(--panel2)' : 'var(--panel)',
             }}
           >
-            <span style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--sub)' }}>{k}</span>
             <span
-              className="truncate"
-              style={{ fontFamily: 'Inter', fontSize: '12px', color: 'var(--text)', textAlign: 'right' }}
+              style={{
+                fontFamily: 'Inter',
+                fontSize: '12px',
+                color: 'var(--sub)',
+                flexShrink: 0,
+              }}
+            >
+              {k}
+            </span>
+            {/* Wrap instead of truncating: on a phone the address and long
+                filenames must stay readable, and `overflow-wrap` prevents an
+                unbroken value from widening the card. */}
+            <span
+              className="kyc-review-value"
+              style={{
+                fontFamily: 'Inter',
+                fontSize: '12px',
+                color: 'var(--text)',
+                minWidth: 0,
+                overflowWrap: 'anywhere',
+                wordBreak: 'break-word',
+              }}
             >
               {v || '—'}
             </span>
@@ -1328,7 +1347,15 @@ function StatusScreen({
   return (
     <>
       <Card>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px 10px',
+            marginBottom: '14px',
+          }}
+        >
           <h3 style={{ fontFamily: 'Space Grotesk', fontSize: '16px', color: 'var(--text)' }}>
             {kyc.status === 'verified' && 'Identity verified'}
             {kyc.status === 'pending' && 'Under review'}
@@ -1359,6 +1386,7 @@ function StatusScreen({
             <button
               type="button"
               onClick={onResubmit}
+              className="kyc-cta"
               style={{ ...primaryBtnStyle, marginTop: '14px' }}
             >
               Resubmit
@@ -1366,7 +1394,7 @@ function StatusScreen({
           </>
         )}
         {kyc.status === 'none' && (
-          <button type="button" onClick={onResubmit} style={primaryBtnStyle}>
+          <button type="button" onClick={onResubmit} className="kyc-cta" style={primaryBtnStyle}>
             Start verification
           </button>
         )}
@@ -1408,6 +1436,7 @@ function StatusScreen({
         <button
           type="button"
           onClick={onSwitchLive}
+          className="kyc-cta"
           style={{ ...primaryBtnStyle, marginTop: '20px' }}
         >
           <CheckCircle2 size={16} style={{ marginRight: '6px' }} />
