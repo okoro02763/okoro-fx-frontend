@@ -105,43 +105,93 @@ export default function LoginPage() {
             </>
           }
         >
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <Field label="Email">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Password">
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={inputStyle}
-              />
-            </Field>
-            {error && (
-              <p
-                style={{
-                  fontFamily: 'Inter',
-                  fontSize: '12px',
-                  color: 'var(--loss)',
-                  margin: 0,
-                }}
-              >
-                {error}
+          {!verificationRequired ? (
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <Field label="Email">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label="Password">
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={inputStyle}
+                />
+              </Field>
+              {error && (
+                <p
+                  style={{
+                    fontFamily: 'Inter',
+                    fontSize: '12px',
+                    color: 'var(--loss)',
+                    margin: 0,
+                  }}
+                >
+                  {error}
+                </p>
+              )}
+              <PrimaryButton disabled={loading}>
+                {loading ? 'Signing in…' : 'Sign in'}
+              </PrimaryButton>
+            </form>
+          ) : (
+            <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ fontFamily: 'Inter', fontSize: '12px', color: '#868CA8', margin: 0 }}>
+                We sent a 6-digit verification code to {email}. Enter it to trust this device.
               </p>
-            )}
-            <PrimaryButton disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
-            </PrimaryButton>
-          </form>
+              <Field label="Verification code">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="123456"
+                  style={{ ...inputStyle, textAlign: 'center', letterSpacing: '8px', fontSize: '18px' }}
+                />
+              </Field>
+              {error && (
+                <p
+                  style={{
+                    fontFamily: 'Inter',
+                    fontSize: '12px',
+                    color: 'var(--loss)',
+                    margin: 0,
+                  }}
+                >
+                  {error}
+                </p>
+              )}
+              <PrimaryButton disabled={loading || code.length < 6}>
+                {loading ? 'Verifying…' : 'Verify device'}
+              </PrimaryButton>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                style={{ background: 'none', border: 'none', color: '#E8B454', fontSize: '12px', cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer' }}
+              >
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setVerificationRequired(false); setCode(''); setError(''); }}
+                style={{ background: 'none', border: 'none', color: '#868CA8', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Back to login
+              </button>
+            </form>
+          )}
         </AuthShell>
       </div>
     </div>

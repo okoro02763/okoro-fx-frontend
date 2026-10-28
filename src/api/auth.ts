@@ -32,11 +32,40 @@ export interface MessageResponse {
   message: string;
 }
 
+import { getDeviceId } from '../lib/device';
+
 // TODO: confirm against real backend
 export function login(email: string, password: string): Promise<LoginResponse> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
     body: { email, password },
+    headers: { 'X-Device-Id': getDeviceId() },
+  } as any);
+}
+
+export function verifyDevice(email: string, code: string): Promise<LoginResponse> {
+  return request<LoginResponse>('/auth/verify-device', {
+    method: 'POST',
+    body: { email, code, device_id: getDeviceId() },
+    headers: { 'X-Device-Id': getDeviceId() },
+  } as any);
+}
+
+export function resendVerification(email: string): Promise<MessageResponse> {
+  return request<MessageResponse>('/auth/resend-verification', {
+    method: 'POST',
+    body: { email, device_id: getDeviceId() },
+    headers: { 'X-Device-Id': getDeviceId() },
+  } as any);
+}
+
+export function getDevices(): Promise<{ devices: any[] }> {
+  return request<{ devices: any[] }>('/auth/devices');
+}
+
+export function revokeDevice(deviceId: number): Promise<MessageResponse> {
+  return request<MessageResponse>(`/auth/devices/${deviceId}`, {
+    method: 'DELETE',
   });
 }
 

@@ -16,6 +16,7 @@ import FraudPage from './Pages/FraudPage';
 import AccountPage from './Pages/AccountPage';
 import VerificationPage from './Pages/VerificationPage';
 import TerminalPage from './Pages/TerminalPage';
+import DevicesPage from './Pages/DevicesPage';
 
 function App() {
   return (
@@ -55,6 +56,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ReferralsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/devices"
+            element={
+              <ProtectedRoute>
+                <DevicesPage />
               </ProtectedRoute>
             }
           />
