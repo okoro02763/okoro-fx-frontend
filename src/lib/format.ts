@@ -83,3 +83,58 @@ export function formatClock(value: number | string | Date): string {
     .toString()
     .padStart(2, '0')}`;
 }
+
+/**
+ * A Date shifted into the selected fixed UTC offset. Read it with the UTC
+ * getters so the wall-clock value is independent of the browser timezone.
+ */
+export function shiftedDate(
+  value: number | string | Date,
+  offsetMinutes: number
+): Date {
+  const t = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return new Date(t + offsetMinutes * 60_000);
+}
+
+/** Clock time as HH:MM in the selected UTC offset. */
+export function formatClockTz(
+  value: number | string | Date,
+  offsetMinutes: number
+): string {
+  const d = shiftedDate(value, offsetMinutes);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return `${d.getUTCHours().toString().padStart(2, '0')}:${d
+    .getUTCMinutes()
+    .toString()
+    .padStart(2, '0')}`;
+}
+
+/** Full date + time in the selected UTC offset (for trade history). */
+export function formatDateTimeTz(
+  value: number | string | Date,
+  offsetMinutes: number
+): string {
+  const d = shiftedDate(value, offsetMinutes);
+  if (Number.isNaN(d.getTime())) return '—';
+  const dd = d.getUTCDate().toString().padStart(2, '0');
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return `${dd} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${d
+    .getUTCHours()
+    .toString()
+    .padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+}
+
+/** Duration as mm:ss, or hh:mm:ss when an hour or longer. */
+export function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${r.toString().padStart(2, '0')}`;
+}

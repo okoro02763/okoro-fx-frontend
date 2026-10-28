@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowDownCircle, ArrowUpCircle, ChevronRight, Minus, Plus } from 'lucide-react';
 import { formatMoney } from '../../lib/format';
+import { useSettings } from '../../store/settings';
 import type { Direction } from '../../types/binary';
 import type { StakeMode } from '../../store/terminal';
 
@@ -40,6 +41,8 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
+const PRESET_TIMES = ['08:36', '08:37', '08:38', '08:39', '08:40', '08:45', '09:00', '09:30', '10:00'];
+
 function dotted() {
   return (
     <span
@@ -67,6 +70,11 @@ export default function TradePanel({
   onTrade,
 }: TradePanelProps) {
   const [now, setNow] = useState(() => Date.now());
+  const [timePopupOpen, setTimePopupOpen] = useState(false);
+  const [timeTab, setTimeTab] = useState<'timer' | 'time'>('timer');
+  const [manualTime, setManualTime] = useState('');
+  const { timezoneMinutes } = useSettings();
+
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -78,13 +86,14 @@ export default function TradePanel({
   const overBalance = stake > balance;
   const disabled = placing || overBalance || stake <= 0;
 
-  const expiry = new Date(now + durationSeconds * 1000);
-  const expiryClock = `${expiry.getHours().toString().padStart(2, '0')}:${expiry
-    .getMinutes()
+  const expiryMs = now + durationSeconds * 1000;
+  const expiryShifted = new Date(expiryMs + timezoneMinutes * 60_000);
+  const expiryClock = `${expiryShifted.getUTCHours().toString().padStart(2, '0')}:${expiryShifted
+    .getUTCMinutes()
     .toString()
     .padStart(2, '0')}`;
 
-  const onTimeChange = (value: string) => {
+  const applyTimeString = (value: string) => {
     if (!value) return;
     const [h, m] = value.split(':').map(Number);
     const target = new Date();
@@ -92,6 +101,7 @@ export default function TradePanel({
     let seconds = Math.round((target.getTime() - Date.now()) / 1000);
     if (seconds <= 0) seconds += 24 * 3600;
     onDuration(seconds);
+    setTimePopupOpen(false);
   };
 
   const clamp = (v: number) => Math.max(stakeMode === 'percent' ? 0 : 1, Math.min(100000, v));
@@ -123,7 +133,7 @@ export default function TradePanel({
           <span className="min-w-0">
             <span
               className="block truncate text-[13px] font-semibold"
-              style={{ color: 'var(--text)' }}
+              style={{ color: '#ffffff' }}
             >
               {instrumentName || symbol}
             </span>
@@ -144,22 +154,19 @@ export default function TradePanel({
 
       {/* Row 2: Time + Investment */}
       <div className="mb-2 flex gap-2">
-        <label
-          className="relative flex flex-1 flex-col rounded-xl px-3 pb-1.5 pt-4"
+        <button
+          type="button"
+          onClick={() => setTimePopupOpen(true)}
+          className="relative flex flex-1 flex-col rounded-xl px-3 pb-1.5 pt-4 text-left"
           style={{ backgroundColor: 'var(--panel-2)', border: '1px solid var(--border)' }}
         >
           <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
             Time
           </span>
-          <input
-            type="time"
-            value={expiryClock}
-            step={60}
-            onChange={(e) => onTimeChange(e.target.value)}
-            className="mono w-full bg-transparent text-[15px] font-semibold outline-none"
-            style={{ color: 'var(--text)' }}
-          />
-        </label>
+          <span className="mono w-full text-[15px] font-semibold" style={{ color: 'var(--text)' }}>
+            {expiryClock}
+          </span>
+        </button>
 
         <div
           className="relative flex flex-1 items-center gap-1 rounded-xl px-2 pb-1.5 pt-4"
@@ -193,7 +200,13 @@ export default function TradePanel({
                 %
               </>
             ) : (
-              formatMoney(stakeValue)
+              <input
+                value={Math.round(stakeValue)}
+                inputMode="decimal"
+                onChange={(e) => onStakeValue(clamp(Number(e.target.value) || 0))}
+                className="mono w-16 bg-transparent text-center text-[15px] font-semibold outline-none"
+                style={{ color: 'var(--text)' }}
+              />
             )}
           </span>
           <button
@@ -208,8 +221,13 @@ export default function TradePanel({
           <button
             type="button"
             onClick={() => {
-              onStakeMode(stakeMode === 'percent' ? 'amount' : 'percent');
-              onStakeValue(stakeMode === 'percent' ? Math.round(stake) || 10 : 10);
+              if (stakeMode === 'percent') {
+                onStakeMode('amount');
+                onStakeValue(Math.max(1, Math.round(stake)));
+              } else {
+                onStakeMode('percent');
+                onStakeValue(10);
+              }
             }}
             className="absolute -bottom-0 right-1 text-[9px] font-bold uppercase"
             style={{ color: 'var(--blue)' }}
@@ -269,6 +287,81 @@ export default function TradePanel({
           );
         })}
       </div>
+
+      {timePopupOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[90] bg-black/60"
+            onClick={() => setTimePopupOpen(false)}
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-[91] mx-auto max-w-md rounded-t-3xl p-4"
+            style={{ backgroundColor: 'var(--panel)', borderTop: '1px solid var(--border)' }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[15px] font-semibold" style={{ color: 'var(--text)' }}>Set time</span>
+              <button type="button" onClick={() => setTimePopupOpen(false)}>
+                <span style={{ color: 'var(--muted)' }}>✕</span>
+              </button>
+            </div>
+            <div className="mb-3 flex gap-2">
+              {(['timer', 'time'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setTimeTab(tab)}
+                  className="flex-1 rounded-full py-1.5 text-[12px] font-semibold uppercase"
+                  style={{
+                    backgroundColor: timeTab === tab ? 'var(--blue)' : 'var(--panel-2)',
+                    color: timeTab === tab ? '#fff' : 'var(--muted)',
+                  }}
+                >
+                  {tab === 'timer' ? 'Timer' : 'Time'}
+                </button>
+              ))}
+            </div>
+            {timeTab === 'time' && (
+              <>
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                  {PRESET_TIMES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => applyTimeString(t)}
+                      className="rounded-lg py-2 text-[13px] font-semibold"
+                      style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (manualTime) applyTimeString(manualTime);
+                  }}
+                  className="mb-2 w-full rounded-lg py-2 text-[13px] font-semibold"
+                  style={{ backgroundColor: 'var(--blue)', color: '#fff' }}
+                >
+                  Set manually
+                </button>
+                <input
+                  type="time"
+                  value={manualTime}
+                  onChange={(e) => setManualTime(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-[13px]"
+                  style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                />
+              </>
+            )}
+            {timeTab === 'timer' && (
+              <div className="py-6 text-center text-[13px]" style={{ color: 'var(--muted)' }}>
+                Timer mode coming soon
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

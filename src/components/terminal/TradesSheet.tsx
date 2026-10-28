@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Briefcase, Inbox } from 'lucide-react';
 import Sheet from './Sheet';
-import { formatCountdown, formatMoney } from '../../lib/format';
+import { formatCountdown, formatDuration, formatMoney } from '../../lib/format';
+import { useSettings } from '../../store/settings';
 import type { Trade } from '../../types/binary';
 
 interface TradesSheetProps {
@@ -13,22 +14,18 @@ interface TradesSheetProps {
 
 type TabKey = 'trades' | 'pending';
 
-function dayKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+function dayKey(iso: string, offsetMinutes: number): string {
+  const d = new Date(new Date(iso).getTime() + offsetMinutes * 60_000);
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
 }
 
-function dayLabel(iso: string): string {
-  const d = new Date(iso);
-  return d
-    .toLocaleDateString('en-GB', { day: '2-digit', month: 'long' })
-    .toUpperCase();
-}
-
-function durationLabel(seconds: number): string {
-  if (seconds >= 3600 && seconds % 3600 === 0) return `${seconds / 3600} h`;
-  if (seconds >= 60 && seconds % 60 === 0) return `${seconds / 60} min`;
-  return `${seconds} s`;
+function dayLabel(iso: string, offsetMinutes: number): string {
+  const d = new Date(new Date(iso).getTime() + offsetMinutes * 60_000);
+  const months = [
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+  ];
+  return `${d.getUTCDate().toString().padStart(2, '0')} ${months[d.getUTCMonth()]}`;
 }
 
 function Flag() {
@@ -42,6 +39,7 @@ function Flag() {
 
 export default function TradesSheet({ open, onClose, trades, now }: TradesSheetProps) {
   const [tab, setTab] = useState<TabKey>('trades');
+  const { timezoneMinutes } = useSettings();
 
   const openTrades = trades.filter((t) => t.status === 'open');
   const closedTrades = trades.filter((t) => t.status !== 'open');
@@ -54,13 +52,13 @@ export default function TradesSheet({ open, onClose, trades, now }: TradesSheetP
       );
     const map = new Map<string, Trade[]>();
     sorted.forEach((t) => {
-      const key = dayKey(t.created_at);
+      const key = dayKey(t.created_at, timezoneMinutes);
       const list = map.get(key);
       if (list) list.push(t);
       else map.set(key, [t]);
     });
     return Array.from(map.values());
-  }, [trades]);
+  }, [trades, timezoneMinutes]);
 
   const secondsLeft = (t: Trade) =>
     Math.max(0, (new Date(t.expiry_time).getTime() - now) / 1000);
@@ -112,7 +110,7 @@ export default function TradesSheet({ open, onClose, trades, now }: TradesSheetP
                 style={{ backgroundColor: 'var(--panel-2)' }}
               >
                 <span className="text-[11px] font-bold tracking-wide" style={{ color: 'var(--muted)' }}>
-                  {dayLabel(rows[0].created_at)}
+                  {dayLabel(rows[0].created_at, timezoneMinutes)}
                 </span>
                 <span
                   className="flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold"
@@ -147,8 +145,8 @@ export default function TradesSheet({ open, onClose, trades, now }: TradesSheetP
                       </span>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="mono text-[13px] font-semibold" style={{ color: 'var(--muted)' }}>
-                        {isOpen ? formatCountdown(secondsLeft(t)) : durationLabel(duration)}
+                      <div className="mono text-[13px] font-semibold" style={{ color: isOpen ? 'var(--amber)' : 'var(--muted)' }}>
+                        {isOpen ? formatCountdown(secondsLeft(t)) : formatDuration(duration)}
                       </div>
                       <div
                         className="mono text-[13px] font-bold"

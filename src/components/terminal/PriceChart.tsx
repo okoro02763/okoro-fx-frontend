@@ -21,8 +21,12 @@ import type {
   TradeStatus,
 } from '../../types/binary';
 import { bollinger, psar, sma, supertrend } from '../../lib/indicators';
-import { formatClock, formatCountdown, formatMoney } from '../../lib/format';
+import { formatClockTz, formatCountdown, formatMoney } from '../../lib/format';
+import { useSettings } from '../../store/settings';
 import MiniChart, { type LogicalRange } from './MiniChart';
+
+// Candles shown by default when the chart first loads.
+const DEFAULT_VISIBLE_BARS = 35;
 
 const UP = '#0fb360';
 const DOWN = '#ef5a4c';
@@ -165,6 +169,11 @@ export default function PriceChart({
   const [clock, setClock] = useState(() => Date.now());
   const [overlays, setOverlays] = useState<TradeOverlay[]>([]);
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [priceY, setPriceY] = useState<number | null>(null);
+
+  const { timezoneMinutes, autoScroll } = useSettings();
+  const tzRef = useRef(timezoneMinutes);
+  tzRef.current = timezoneMinutes;
 
   const nowMs = now ?? clock;
   const subPanes =
@@ -195,11 +204,30 @@ export default function PriceChart({
       },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: BORDER, scaleMargins: { top: 0.12, bottom: 0.12 } },
+      localization: {
+        timeFormatter: (time: Time) => {
+          if (typeof time !== 'number') return '';
+          const d = new Date((time + tzRef.current * 60) * 1000);
+          return `${d.getUTCHours().toString().padStart(2, '0')}:${d
+            .getUTCMinutes()
+            .toString()
+            .padStart(2, '0')}`;
+        },
+      },
       timeScale: {
         borderColor: BORDER,
         timeVisible: true,
         secondsVisible: intervalSeconds < 60,
         rightOffset: 6,
+        barSpacing: 9,
+        tickMarkFormatter: (time: Time) => {
+          if (typeof time !== 'number') return '';
+          const d = new Date((time + tzRef.current * 60) * 1000);
+          return `${d.getUTCHours().toString().padStart(2, '0')}:${d
+            .getUTCMinutes()
+            .toString()
+            .padStart(2, '0')}`;
+        },
       },
     });
     chartRef.current = chart;
@@ -352,11 +380,22 @@ export default function PriceChart({
       line?.applyOptions({ color: lastDir === -1 ? DOWN : UP });
     }
 
-    if (!fitDoneRef.current && bars.length) {
-      chartRef.current?.timeScale().fitContent();
-      fitDoneRef.current = true;
+    const chart = chartRef.current;
+    if (chart && bars.length) {
+      if (!fitDoneRef.current) {
+        // Show the most recent candles at a readable zoom instead of fitting
+        // the entire history (which used to leave three candles on screen).
+        const from = Math.max(0, bars.length - DEFAULT_VISIBLE_BARS);
+        chart.timeScale().setVisibleLogicalRange({
+          from,
+          to: bars.length - 1 + 2,
+        });
+        fitDoneRef.current = true;
+      } else if (autoScroll) {
+        chart.timeScale().scrollToRealTime();
+      }
     }
-  }, [candles, bars, chartType]);
+  }, [candles, bars, chartType, autoScroll]);
 
   // Live price marker + last candle update.
   useEffect(() => {
@@ -377,26 +416,11 @@ export default function PriceChart({
     }
   }, [price]);
 
-  // Trade entry markers.
+  // The built-in series markers are far too large for this UI, so trade
+  // entries are drawn entirely by the custom overlay below.
   useEffect(() => {
-    const series = seriesRef.current;
-    if (!series) return;
-    const markers = trades
-      .filter((t) => t.symbol === symbol && t.status === 'open')
-      .map((t) => ({
-        time: Math.floor(new Date(t.created_at).getTime() / 1000) as UTCTimestamp,
-        position: (t.direction === 'buy' ? 'belowBar' : 'aboveBar') as
-          | 'belowBar'
-          | 'aboveBar',
-        color: t.direction === 'buy' ? UP : DOWN,
-        shape: (t.direction === 'buy' ? 'arrowUp' : 'arrowDown') as
-          | 'arrowUp'
-          | 'arrowDown',
-        text: '',
-      }))
-      .sort((a, b) => (a.time as number) - (b.time as number));
-    series.setMarkers(markers);
-  }, [trades, symbol]);
+    seriesRef.current?.setMarkers([]);
+  }, [chartType]);
 
   // Recompute overlay pixel positions from chart coordinates.
   const layout = useCallback(() => {
@@ -405,6 +429,7 @@ export default function PriceChart({
     if (!chart || !series) return;
     const ts = chart.timeScale();
     const live = lastPriceRef.current || price;
+    setPriceY(series.priceToCoordinate(live));
     const next: TradeOverlay[] = trades
       .filter((t) => t.symbol === symbol)
       .map((t) => {
@@ -519,7 +544,7 @@ export default function PriceChart({
                       }}
                     />
                     <div style={{ ...labelStyle, left: clampX(o.openX, paneWidth), top: 6 }}>
-                      Beginning of trade · {formatClock(o.openTime)}
+                      Beginning of trade · {formatClockTz(o.openTime, timezoneMinutes)}
                     </div>
                   </>
                 )}
@@ -554,23 +579,23 @@ export default function PriceChart({
                         left: hLeft,
                         top: o.entryY,
                         width,
-                        borderTop: `2px solid ${lineColor}`,
+                        borderTop: `1px solid ${lineColor}`,
                       }}
                     />
                     <div
                       style={{
                         position: 'absolute',
-                        left: o.openX - 6,
-                        top: o.entryY - 6,
-                        width: 12,
-                        height: 12,
+                        left: o.openX - 7,
+                        top: o.entryY - 7,
+                        width: 14,
+                        height: 14,
                         borderRadius: '50%',
                         backgroundColor: lineColor,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#fff',
-                        fontSize: 8,
+                        fontSize: 9,
                         fontWeight: 700,
                       }}
                     >
@@ -626,6 +651,27 @@ export default function PriceChart({
             );
           })}
         </div>
+
+        {/* Live countdown on the current-price dashed line */}
+        {priceY !== null && (
+          <div
+            className="pointer-events-none absolute right-0 z-[7] -translate-y-1/2"
+            style={{ top: priceY }}
+          >
+            <span
+              className="block rounded-l px-1.5 py-0.5 text-[9px] font-bold"
+              style={{
+                backgroundColor: 'rgba(43,140,255,0.9)',
+                color: '#fff',
+              }}
+            >
+              {formatCountdown(
+                intervalSeconds -
+                  ((Math.floor(nowMs / 1000) % intervalSeconds))
+              )}
+            </span>
+          </div>
+        )}
 
         <div
           className="pointer-events-none absolute left-3 top-2 z-[6] text-[11px] font-semibold"

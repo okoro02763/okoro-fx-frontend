@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, Star } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Check, Star } from 'lucide-react';
 import Sheet from './Sheet';
 import binaryApi from '../../api/binary';
 import type { Category, Instrument } from '../../types/binary';
@@ -14,10 +14,10 @@ interface PairSelectorModalProps {
 }
 
 const TABS: { key: Category; label: string }[] = [
-  { key: 'currencies', label: 'Currencies' },
-  { key: 'crypto', label: 'Crypto' },
-  { key: 'commodities', label: 'Commodities' },
-  { key: 'stocks', label: 'Stocks' },
+  { key: 'currencies', label: 'CURRENCIES' },
+  { key: 'crypto', label: 'CRYPTO' },
+  { key: 'commodities', label: 'COMMODITIES' },
+  { key: 'stocks', label: 'STOCKS' },
 ];
 
 function Flag() {
@@ -39,9 +39,10 @@ export default function PairSelectorModal({
 }: PairSelectorModalProps) {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<Category>('crypto');
+  const [tab, setTab] = useState<Category>('currencies');
   const [query, setQuery] = useState('');
   const [favOnly, setFavOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'Name' | 'Profit' | 'Change'>('Name');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -65,15 +66,24 @@ export default function PairSelectorModal({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return instruments
+    let result = instruments
       .filter((i) => {
         if (favOnly && !favorites.includes(i.symbol)) return false;
         if (!favOnly && i.category !== tab) return false;
         if (!q) return true;
         return i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q);
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [instruments, tab, query, favorites, favOnly]);
+      });
+    
+    if (sortBy === 'Name') {
+      result = result.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'Change') {
+      result = result.sort((a, b) => (b.percent_change ?? 0) - (a.percent_change ?? 0));
+    } else if (sortBy === 'Profit') {
+      result = result.sort((a, b) => Number(b.payout_percent) - Number(a.payout_percent));
+    }
+    
+    return result;
+  }, [instruments, tab, query, favorites, favOnly, sortBy]);
 
   return (
     <Sheet open={open} onClose={onClose} title="Select trade pair">
@@ -124,8 +134,18 @@ export default function PairSelectorModal({
             style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}
           />
         </div>
-        <div className="mb-2 text-[11px]" style={{ color: 'var(--muted)' }}>
-          Sort by: <span style={{ color: 'var(--text)' }}>Name</span>
+        <div className="mb-2 flex items-center gap-1 text-[11px]" style={{ color: 'var(--muted)' }}>
+          <span>Sort by:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="rounded px-1.5 py-0.5 text-[11px] outline-none"
+            style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)', border: 'none' }}
+          >
+            <option value="Name">Name</option>
+            <option value="Profit">Profit</option>
+            <option value="Change">Change</option>
+          </select>
         </div>
       </div>
 
@@ -195,15 +215,18 @@ export default function PairSelectorModal({
                       {pct.toFixed(2)}%
                     </span>
                     <span
-                      className="flex h-6 w-6 items-center justify-center rounded-full"
+                      className="flex h-6 items-center justify-center gap-1 rounded-full px-1.5"
                       style={{ backgroundColor: up ? 'var(--green)' : 'var(--red)' }}
                     >
                       {up ? (
-                        <ArrowUpRight size={13} color="#fff" />
+                        <ArrowUpRight size={12} color="#fff" />
                       ) : (
-                        <ArrowDownRight size={13} color="#fff" />
+                        <ArrowDownRight size={12} color="#fff" />
                       )}
                     </span>
+                    {i.symbol === currentSymbol && (
+                      <Check size={16} color="var(--blue)" />
+                    )}
                   </span>
                 </button>
               </div>

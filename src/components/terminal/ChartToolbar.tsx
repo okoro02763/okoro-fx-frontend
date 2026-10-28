@@ -4,6 +4,7 @@ import {
   CandlestickChart,
   MoreHorizontal,
   PenLine,
+  Settings,
   Sliders,
 } from 'lucide-react';
 import {
@@ -28,6 +29,7 @@ interface ChartToolbarProps {
   onClearDrawings: () => void;
   openTradeCount: number;
   onOpenTrades: () => void;
+  onOpenSettings?: () => void;
 }
 
 type Popup = 'none' | 'timeframe' | 'chartType';
@@ -83,6 +85,7 @@ export default function ChartToolbar({
   onClearDrawings,
   openTradeCount,
   onOpenTrades,
+  onOpenSettings,
 }: ChartToolbarProps) {
   const [popup, setPopup] = useState<Popup>('none');
   const [drawingsOpen, setDrawingsOpen] = useState(false);
@@ -133,6 +136,12 @@ export default function ChartToolbar({
         <ToolButton label="Trades" badge={openTradeCount} onClick={onOpenTrades}>
           <Briefcase size={16} color="var(--text)" />
         </ToolButton>
+
+        {onOpenSettings && (
+          <ToolButton label="Settings" onClick={onOpenSettings}>
+            <Settings size={16} color="var(--text)" />
+          </ToolButton>
+        )}
       </div>
 
       {popup === 'timeframe' && (

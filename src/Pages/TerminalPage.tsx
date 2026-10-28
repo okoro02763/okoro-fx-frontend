@@ -5,6 +5,7 @@ import binaryApi from '../api/binary';
 import { useAuth } from '../context/AuthContext';
 import { useMarketData } from '../hooks/useMarketData';
 import { useTerminal } from '../store/terminal';
+import { useSettings } from '../store/settings';
 import { formatMoney, formatPrice, formatSignedPercent } from '../lib/format';
 import type { Direction, IndicatorKey, Trade, Wallet } from '../types/binary';
 import type { DrawingKey } from '../components/terminal/DrawingsSheet';
@@ -19,6 +20,7 @@ import PairSelectorModal from '../components/terminal/PairSelectorModal';
 import NotificationsSheet from '../components/terminal/NotificationsSheet';
 import AccountDropdown from '../components/terminal/AccountDropdown';
 import ExchangeFormModal from '../components/terminal/ExchangeFormModal';
+import SettingsModal from '../components/terminal/SettingsModal';
 
 interface Toast {
   id: number;
@@ -69,6 +71,7 @@ export default function TerminalPage() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [now, setNow] = useState(() => Date.now());
@@ -154,7 +157,10 @@ export default function TerminalPage() {
     stakeMode === 'percent' ? (balance * stakeValue) / 100 : stakeValue;
   const openTradeCount = trades.filter((t) => t.status === 'open').length;
 
-  const handleTrade = async (direction: Direction) => {
+  const { oneClickTrade } = useSettings();
+  const [pendingConfirm, setPendingConfirm] = useState<Direction | null>(null);
+
+  const executeTrade = async (direction: Direction) => {
     if (placing) return;
     if (resolvedStake > balance) {
       pushToast('error', 'Stake exceeds your demo balance.');
@@ -179,6 +185,14 @@ export default function TerminalPage() {
     } finally {
       setPlacing(false);
     }
+  };
+
+  const handleTrade = async (direction: Direction) => {
+    if (oneClickTrade) {
+      await executeTrade(direction);
+      return;
+    }
+    setPendingConfirm(direction);
   };
 
   const handleReset = async () => {
@@ -271,6 +285,7 @@ export default function TerminalPage() {
               onClearDrawings={() => setDrawings([])}
               openTradeCount={openTradeCount}
               onOpenTrades={() => setTradesOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
 
             {loading && candles.length === 0 && (
@@ -455,6 +470,8 @@ export default function TerminalPage() {
         }}
       />
 
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
       <ExchangeFormModal
         open={exchangeOpen}
         onClose={() => setExchangeOpen(false)}
@@ -463,6 +480,45 @@ export default function TerminalPage() {
           pushToast('info', 'Exchange request submitted (demo).');
         }}
       />
+
+      {pendingConfirm && !oneClickTrade && (
+        <>
+          <div className="fixed inset-0 z-[95] bg-black/60" onClick={() => setPendingConfirm(null)} />
+          <div
+            className="fixed inset-x-0 bottom-0 z-[96] mx-auto max-w-md rounded-t-3xl p-4"
+            style={{ backgroundColor: 'var(--panel)', borderTop: '1px solid var(--border)' }}
+          >
+            <div className="mb-2 text-center text-[15px] font-semibold" style={{ color: 'var(--text)' }}>
+              Confirm trade
+            </div>
+            <div className="mb-4 text-center text-[13px]" style={{ color: 'var(--muted)' }}>
+              {pendingConfirm === 'buy' ? 'Buy' : 'Sell'} {symbol} for {formatMoney(resolvedStake)}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingConfirm(null)}
+                className="flex-1 rounded-xl py-3 text-[14px] font-semibold"
+                style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const dir = pendingConfirm;
+                  setPendingConfirm(null);
+                  if (dir) executeTrade(dir);
+                }}
+                className="flex-1 rounded-xl py-3 text-[14px] font-bold text-white"
+                style={{ backgroundColor: pendingConfirm === 'buy' ? 'var(--green)' : 'var(--red)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
