@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Minus, Plus, X } from 'lucide-react';
 import {
   ColorType,
   CrosshairMode,
@@ -176,6 +176,16 @@ export default function PriceChart({
   tzRef.current = timezoneMinutes;
 
   const nowMs = now ?? clock;
+  const [sentiment, setSentiment] = useState({ buy: 17, sell: 83 }); // red top % / green bottom %
+  const tzLabel = (() => {
+    const sign = timezoneMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(timezoneMinutes);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    return `UTC${sign}${h}${m ? `:${m.toString().padStart(2, '0')}` : ''}`;
+  })();
+  const tzClock = new Date(nowMs + timezoneMinutes * 60_000);
+  const tzStr = `${tzClock.getUTCHours().toString().padStart(2, '0')}:${tzClock.getUTCMinutes().toString().padStart(2, '0')}:${tzClock.getUTCSeconds().toString().padStart(2, '0')}`;
   const subPanes =
     (indicators.includes('rsi') ? 1 : 0) + (indicators.includes('macd') ? 1 : 0);
   const hasSubPane = subPanes > 0;
@@ -491,6 +501,18 @@ export default function PriceChart({
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => {
+      setSentiment((s) => {
+        const drift = (Math.random() - 0.5) * 6;
+        let buy = Math.round(Math.max(5, Math.min(95, s.buy + drift)));
+        let sell = 100 - buy;
+        return { buy, sell };
+      });
+    }, 2500);
+    return () => clearInterval(id);
+  }, []);
+
   const paneWidth = mainContainerRef.current?.clientWidth ?? 0;
 
   const dismissBubble = (id: number) =>
@@ -540,11 +562,11 @@ export default function PriceChart({
                         left: o.openX,
                         top: 0,
                         bottom: 0,
-                        borderLeft: '1px dashed rgba(138,144,168,0.6)',
+                        borderLeft: '1px dashed rgba(138,144,168,0.7)',
                       }}
                     />
-                    <div style={{ ...labelStyle, left: clampX(o.openX, paneWidth), top: 6 }}>
-                      Beginning of trade · {formatClockTz(o.openTime, timezoneMinutes)}
+                    <div style={{ ...labelStyle, left: clampX(o.openX + 2, paneWidth), top: 6 }}>
+                      Beginning of trade
                     </div>
                   </>
                 )}
@@ -557,16 +579,14 @@ export default function PriceChart({
                         left: o.expiryX,
                         top: 0,
                         bottom: 0,
-                        borderLeft: `1px solid ${
+                        borderLeft: `1px dashed ${
                           o.status === 'open' ? AMBER : lineColor
                         }`,
                       }}
                     />
-                    <div style={{ ...labelStyle, left: clampX(o.expiryX, paneWidth), top: 26 }}>
+                    <div style={{ ...labelStyle, left: clampX(o.expiryX + 2, paneWidth), top: 26 }}>
                       End of trade
-                      {o.status === 'open'
-                        ? ` · ${formatCountdown((o.expiryTime - nowMs) / 1000)}`
-                        : ''}
+                      {o.status === 'open' ? ` · ${formatCountdown(Math.max(0, (o.expiryTime - nowMs) / 1000))}` : ''}
                     </div>
                   </>
                 )}
@@ -595,8 +615,9 @@ export default function PriceChart({
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: '#fff',
-                        fontSize: 9,
+                        fontSize: 8,
                         fontWeight: 700,
+                        boxShadow: '0 0 0 1px rgba(0,0,0,0.4)',
                       }}
                     >
                       {o.direction === 'buy' ? '↑' : '↓'}
@@ -652,10 +673,10 @@ export default function PriceChart({
           })}
         </div>
 
-        {/* Live countdown on the current-price dashed line */}
+        {/* Live countdown on the current-price dashed line - separated from price tag */}
         {priceY !== null && (
           <div
-            className="pointer-events-none absolute right-0 z-[7] -translate-y-1/2"
+            className="pointer-events-none absolute right-0 z-[7] -translate-y-[120%]"
             style={{ top: priceY }}
           >
             <span
@@ -673,11 +694,62 @@ export default function PriceChart({
           </div>
         )}
 
-        <div
-          className="pointer-events-none absolute left-3 top-2 z-[6] text-[11px] font-semibold"
-          style={{ color: 'rgba(255,255,255,0.65)', fontFamily: 'Space Grotesk' }}
-        >
-          {symbol}
+        <div className="pointer-events-none absolute left-2 top-2 z-[6] flex flex-col gap-0.5">
+          <div className="text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'Space Grotesk' }}>
+            {symbol}
+          </div>
+          <div className="text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            {tzStr} {tzLabel}
+          </div>
+        </div>
+        <div className="pointer-events-none absolute bottom-8 left-1/2 z-[6] -translate-x-1/2 rounded px-1.5 py-0.5 text-[9px]" style={{ backgroundColor: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.7)' }}>
+          {tzClock.getUTCHours().toString().padStart(2, '0')}:{tzClock.getUTCMinutes().toString().padStart(2, '0')}:{tzClock.getUTCSeconds().toString().padStart(2, '0')}
+        </div>
+
+        {/* Buy/Sell sentiment bar */}
+        <div className="pointer-events-none absolute left-0 top-16 bottom-16 z-[6] flex w-1.5 flex-col overflow-hidden rounded-r">
+          <div style={{ height: `${sentiment.sell}%`, backgroundColor: '#ef5a4c' }} />
+          <div style={{ height: `${sentiment.buy}%`, backgroundColor: '#0fb360' }} />
+        </div>
+
+        {/* Zoom buttons */}
+        <div className="absolute bottom-10 left-1/2 z-[7] flex -translate-x-1/2 items-center gap-1 rounded-lg px-1 py-0.5" style={{ backgroundColor: 'rgba(21,24,41,0.9)', border: '1px solid var(--border)' }}>
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center"
+            onClick={() => {
+              const chart = chartRef.current;
+              const ts = chart?.timeScale();
+              if (ts) {
+                const range = ts.getVisibleLogicalRange();
+                if (range) {
+                  const center = (range.from + range.to) / 2;
+                  const span = (range.to - range.from) * 1.2;
+                  ts.setVisibleLogicalRange({ from: center - span / 2, to: center + span / 2 });
+                }
+              }
+            }}
+          >
+            <Minus size={14} color="var(--text)" />
+          </button>
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center"
+            onClick={() => {
+              const chart = chartRef.current;
+              const ts = chart?.timeScale();
+              if (ts) {
+                const range = ts.getVisibleLogicalRange();
+                if (range) {
+                  const center = (range.from + range.to) / 2;
+                  const span = Math.max(10, (range.to - range.from) * 0.8);
+                  ts.setVisibleLogicalRange({ from: center - span / 2, to: center + span / 2 });
+                }
+              }
+            }}
+          >
+            <Plus size={14} color="var(--text)" />
+          </button>
         </div>
       </div>
 

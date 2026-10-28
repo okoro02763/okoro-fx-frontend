@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Award, ShieldCheck, TrendingUp } from 'lucide-react';
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  Gift,
+  HelpCircle,
+  Home,
+  LifeBuoy,
+  Menu,
+  MoreHorizontal,
+  Settings,
+  ShieldCheck,
+  TrendingUp,
+  Trophy,
+  User,
+  Users,
+} from 'lucide-react';
 import binaryApi from '../api/binary';
 import { useAuth } from '../context/AuthContext';
 import { useMarketData } from '../hooks/useMarketData';
@@ -217,7 +233,16 @@ export default function TerminalPage() {
 
   const changeColor = change24h >= 0 ? 'var(--green)' : 'var(--red)';
 
-  return (
+  const desktopSidebarItems = [
+    { key: 'trade', label: 'Trade', icon: BarChart3 },
+    { key: 'support', label: 'Support', icon: LifeBuoy },
+    { key: 'account', label: 'Account', icon: User },
+    { key: 'tournaments', label: 'Tournaments', icon: Trophy },
+    { key: 'market', label: 'Market', icon: BookOpen },
+    { key: 'more', label: 'More', icon: MoreHorizontal },
+  ];
+
+  const mobileRoot = (
     <div className="kt-root flex h-[100dvh] flex-col overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
       <TopBar
         balance={balance}
@@ -401,24 +426,26 @@ export default function TerminalPage() {
         />
       )}
 
-      <BottomTabBar
-        active={tab}
-        onChange={setTab}
-        trophyBadge={1}
-        moreBadge={2}
-      />
-      {/* The tab bar is position:fixed, so this spacer reserves its height
-          (plus the iPhone home-indicator safe area) in the flex column. */}
-      <div
-        className="shrink-0"
-        style={{
-          height: TAB_BAR_HEIGHT,
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      />
+      <div className="lg:hidden">
+        <BottomTabBar
+          active={tab}
+          onChange={setTab}
+          trophyBadge={1}
+          moreBadge={2}
+        />
+        {/* The tab bar is position:fixed, so this spacer reserves its height
+            (plus the iPhone home-indicator safe area) in the flex column. */}
+        <div
+          className="shrink-0"
+          style={{
+            height: TAB_BAR_HEIGHT,
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          }}
+        />
+      </div>
 
       {/* Toasts */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[90] flex flex-col items-center gap-2 px-4">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[90] flex flex-col items-center gap-2 px-4 lg:bottom-6">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -520,5 +547,282 @@ export default function TerminalPage() {
         </>
       )}
     </div>
+  );
+
+  const desktopLayout = (
+    <div className="kt-root hidden h-[100dvh] overflow-hidden lg:flex" style={{ backgroundColor: 'var(--bg)' }}>
+      {/* Left sidebar */}
+      <aside
+        className="flex w-[72px] flex-col items-center border-r py-3"
+        style={{ borderColor: 'var(--border)', backgroundColor: 'var(--panel)' }}
+      >
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: 'var(--blue)' }}>
+          <span className="text-[12px] font-bold text-white">FX</span>
+        </div>
+        <nav className="flex flex-1 flex-col items-center gap-1">
+          {desktopSidebarItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className="flex h-14 w-[60px] flex-col items-center justify-center gap-1 rounded-lg"
+                style={{ color: 'var(--muted)' }}
+              >
+                <Icon size={18} />
+                <span className="text-[9px] font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="mb-1 flex h-12 w-[60px] flex-col items-center justify-center gap-1 rounded-lg"
+          style={{ color: 'var(--muted)' }}
+        >
+          <Settings size={18} />
+          <span className="text-[9px] font-medium">Settings</span>
+        </button>
+      </aside>
+
+      {/* Main area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header
+          className="flex h-12 items-center justify-between border-b px-4"
+          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--panel)' }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPairOpen(true)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1"
+            >
+              <span className="relative h-5 w-7 shrink-0">
+                <span className="absolute left-0 top-0 h-5 w-5 rounded-full" style={{ backgroundColor: 'var(--blue)' }} />
+                <span className="absolute left-2 top-0 h-5 w-5 rounded-full" style={{ backgroundColor: 'var(--amber)' }} />
+              </span>
+              <span className="text-[13px] font-semibold" style={{ color: 'var(--text)' }}>
+                {instrumentName || symbol}
+              </span>
+              <span className="text-[11px]" style={{ color: 'var(--muted)' }}>▼</span>
+            </button>
+            <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+              <span>Balance:</span>
+              <span className="mono font-semibold" style={{ color: 'var(--text)' }}>{formatMoney(balance)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setExchangeOpen(true)} className="rounded-lg px-2.5 py-1 text-[11px] font-semibold" style={{ backgroundColor: 'var(--green)', color: '#fff' }}>
+              Deposit
+            </button>
+            <button type="button" onClick={() => setAccountOpen(true)} className="rounded-lg px-2.5 py-1 text-[11px]" style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}>
+              Account
+            </button>
+          </div>
+        </header>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[1fr_280px] gap-0">
+          <section className="relative flex min-h-0 flex-col">
+            <div className="relative min-h-0 flex-1">
+              <PriceChart
+                symbol={symbol}
+                candles={candles}
+                chartType={chartType}
+                intervalSeconds={timeframe.seconds}
+                price={price}
+                trades={trades}
+                now={now}
+                indicators={indicators}
+              />
+              <div className="pointer-events-none absolute right-2 top-2 z-[20] text-right">
+                <div className="text-[11px] font-semibold" style={{ color: 'var(--text)' }}>{symbol}</div>
+                <div className="mono text-[15px] font-semibold" style={{ color: 'var(--text)' }}>{price ? formatPrice(price) : '—'}</div>
+                <div className="text-[11px] font-semibold" style={{ color: changeColor }}>{formatSignedPercent(change24h)}</div>
+              </div>
+              {loading && candles.length === 0 && (
+                <div className="absolute inset-0 z-[25] flex items-center justify-center text-[13px]" style={{ color: 'var(--muted)' }}>
+                  Loading chart…
+                </div>
+              )}
+            </div>
+            <div style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--panel)' }}>
+              <ChartToolbar
+                timeframe={timeframe}
+                onTimeframe={setTimeframe}
+                chartType={chartType}
+                onChartType={setChartType}
+                indicators={indicators}
+                onToggleIndicator={toggleIndicator}
+                onClearIndicators={() => setIndicators([])}
+                drawings={drawings}
+                onToggleDrawing={toggleDrawing}
+                onClearDrawings={() => setDrawings([])}
+                openTradeCount={openTradeCount}
+                onOpenTrades={() => setTradesOpen(true)}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+            </div>
+          </section>
+
+          <aside className="flex min-h-0 flex-col border-l" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--panel)' }}>
+            <div style={{ borderBottom: '1px solid var(--border)' }}>
+              <TradePanel
+                symbol={symbol}
+                instrumentName={instrumentName}
+                payoutPercent={payoutPercent}
+                balance={balance}
+                durationSeconds={durationSeconds}
+                onDuration={setDuration}
+                stakeMode={stakeMode}
+                stakeValue={stakeValue}
+                onStakeMode={setStakeMode}
+                onStakeValue={setStakeValue}
+                pendingTrade={pendingTrade}
+                onPendingTrade={setPendingTrade}
+                placing={placing}
+                onOpenPair={() => setPairOpen(true)}
+                onTrade={handleTrade}
+                variant="desktop"
+              />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--border)' }}>
+                <button type="button" className="rounded-md px-2 py-1 text-[11px] font-semibold" style={{ backgroundColor: 'var(--blue)', color: '#fff' }}>
+                  Trades
+                </button>
+                <button type="button" className="rounded-md px-2 py-1 text-[11px]" style={{ color: 'var(--muted)' }}>
+                  Pending
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+                {trades.filter((t) => t.status === 'open').length === 0 ? (
+                  <div>No open trades</div>
+                ) : (
+                  trades
+                    .filter((t) => t.status === 'open')
+                    .slice(0, 20)
+                    .map((t) => (
+                      <div key={t.id} className="mb-1.5 flex items-center justify-between">
+                        <span style={{ color: 'var(--text)' }}>{t.symbol} {t.direction}</span>
+                        <span>{formatMoney(parseFloat(t.stake))}</span>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="lg:hidden">{mobileRoot}</div>
+      {desktopLayout}
+      {/* Toasts are rendered above for mobile; add for desktop */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[90] hidden flex-col items-center gap-2 px-4 lg:flex">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="pointer-events-auto w-full max-w-sm rounded-xl px-4 py-3 text-[13px] font-medium shadow-2xl"
+            style={{
+              backgroundColor: 'var(--panel-2)',
+              border: `1px solid ${toastColor(t.type)}`,
+              color: 'var(--text)',
+            }}
+          >
+            <span style={{ color: toastColor(t.type), fontWeight: 700 }}>
+              {t.type === 'win' ? 'You won' : t.type === 'loss' ? 'You lost' : t.type === 'error' ? 'Error' : 'Placed'}
+            </span>{' '}
+            {t.text}
+          </div>
+        ))}
+      </div>
+
+      <PairSelectorModal
+        open={pairOpen}
+        onClose={() => setPairOpen(false)}
+        currentSymbol={symbol}
+        favorites={favorites}
+        onToggleFavorite={toggleFavorite}
+        onSelect={(next) => {
+          setSymbol(next);
+          setPairOpen(false);
+        }}
+      />
+
+      <TradesSheet
+        open={tradesOpen}
+        onClose={() => setTradesOpen(false)}
+        trades={trades}
+        now={now}
+      />
+
+      <NotificationsSheet open={notifOpen} onClose={() => setNotifOpen(false)} />
+
+      <AccountDropdown
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        user={user}
+        balance={balance}
+        onReset={handleReset}
+        onExchange={() => {
+          setAccountOpen(false);
+          setExchangeOpen(true);
+        }}
+      />
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <ExchangeFormModal
+        open={exchangeOpen}
+        onClose={() => setExchangeOpen(false)}
+        onConfirm={() => {
+          setExchangeOpen(false);
+          pushToast('info', 'Exchange request submitted (demo).');
+        }}
+      />
+
+      {pendingConfirm && !oneClickTrade && (
+        <>
+          <div className="fixed inset-0 z-[95] bg-black/60" onClick={() => setPendingConfirm(null)} />
+          <div
+            className="fixed inset-x-0 bottom-0 z-[96] mx-auto max-w-md rounded-t-3xl p-4"
+            style={{ backgroundColor: 'var(--panel)', borderTop: '1px solid var(--border)' }}
+          >
+            <div className="mb-2 text-center text-[15px] font-semibold" style={{ color: 'var(--text)' }}>
+              Confirm trade
+            </div>
+            <div className="mb-4 text-center text-[13px]" style={{ color: 'var(--muted)' }}>
+              {pendingConfirm === 'buy' ? 'Buy' : 'Sell'} {symbol} for {formatMoney(resolvedStake)}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingConfirm(null)}
+                className="flex-1 rounded-xl py-3 text-[14px] font-semibold"
+                style={{ backgroundColor: 'var(--panel-2)', color: 'var(--text)' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const dir = pendingConfirm;
+                  setPendingConfirm(null);
+                  if (dir) executeTrade(dir);
+                }}
+                className="flex-1 rounded-xl py-3 text-[14px] font-bold text-white"
+                style={{ backgroundColor: pendingConfirm === 'buy' ? 'var(--green)' : 'var(--red)' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }

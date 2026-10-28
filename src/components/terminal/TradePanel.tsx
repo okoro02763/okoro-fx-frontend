@@ -21,6 +21,7 @@ interface TradePanelProps {
   placing: boolean;
   onOpenPair: () => void;
   onTrade: (direction: Direction) => void;
+  variant?: 'mobile' | 'desktop';
 }
 
 function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -68,6 +69,7 @@ export default function TradePanel({
   placing,
   onOpenPair,
   onTrade,
+  variant = 'mobile',
 }: TradePanelProps) {
   const [now, setNow] = useState(() => Date.now());
   const [timePopupOpen, setTimePopupOpen] = useState(false);
@@ -107,6 +109,98 @@ export default function TradePanel({
   const clamp = (v: number) => Math.max(stakeMode === 'percent' ? 0 : 1, Math.min(100000, v));
   const step = stakeValue >= 100 ? 10 : 1;
   const labels = ['Buy', 'Sell'] as const;
+
+  if (variant === 'desktop') {
+    return (
+      <div className="shrink-0 px-2.5 pb-2.5 pt-2">
+        {/* Pair row */}
+        <button
+          type="button"
+          onClick={onOpenPair}
+          className="mb-1.5 flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left"
+        >
+          <span className="relative h-5 w-7 shrink-0">
+            <span className="absolute left-0 top-0 h-5 w-5 rounded-full" style={{ backgroundColor: 'var(--blue)' }} />
+            <span className="absolute left-2 top-0 h-5 w-5 rounded-full" style={{ backgroundColor: 'var(--amber)' }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-semibold" style={{ color: 'var(--text)' }}>{instrumentName || symbol}</div>
+            <div className="text-[10px]" style={{ color: 'var(--amber)' }}>Payout {Math.round(payoutPercent)}%</div>
+          </div>
+          <ChevronRight size={14} color="var(--muted)" />
+        </button>
+
+        <div className="mb-1.5 flex items-center justify-between px-1">
+          <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--muted)' }}>Pending trade</span>
+          <Switch checked={pendingTrade} onChange={onPendingTrade} />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setTimePopupOpen(true)}
+          className="mb-1.5 w-full rounded-lg px-2 py-1.5 text-left"
+          style={{ backgroundColor: 'var(--panel-2)', border: '1px solid var(--border)' }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] uppercase" style={{ color: 'var(--muted)' }}>SWITCH TIME</span>
+            <span className="mono text-[13px] font-semibold" style={{ color: 'var(--text)' }}>{expiryClock}</span>
+          </div>
+        </button>
+
+        <div
+          className="mb-1.5 flex items-center rounded-lg"
+          style={{ backgroundColor: 'var(--panel-2)', border: '1px solid var(--border)' }}
+        >
+          <button type="button" onClick={() => onStakeValue(clamp(stakeValue - step))} className="px-2 py-1.5">
+            <Minus size={12} color="var(--text)" />
+          </button>
+          <div className="flex flex-1 items-center justify-center gap-1 py-1.5">
+            <span className="text-[9px] uppercase" style={{ color: 'var(--muted)' }}>SWITCH</span>
+            <span className="mono text-[13px] font-semibold" style={{ color: 'var(--text)' }}>
+              {stakeMode === 'percent' ? `${stakeValue}%` : Math.round(stakeValue)}
+            </span>
+          </div>
+          <button type="button" onClick={() => onStakeValue(clamp(stakeValue + step))} className="px-2 py-1.5">
+            <Plus size={12} color="var(--text)" />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (stakeMode === 'percent') { onStakeMode('amount'); onStakeValue(Math.max(1, Math.round(stake))); }
+            else { onStakeMode('percent'); onStakeValue(10); }
+          }}
+          className="mb-1.5 w-full text-center text-[9px] font-bold uppercase"
+          style={{ color: 'var(--blue)' }}
+        >
+          Switch
+        </button>
+
+        <div className="mb-1.5 space-y-0.5 px-1 text-[11px]">
+          <div className="flex items-center justify-between">
+            <span style={{ color: 'var(--muted)' }}>Payout</span>
+            <span className="mono" style={{ color: 'var(--text)' }}>{formatMoney(payout)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span style={{ color: 'var(--muted)' }}>Investment</span>
+            <span className="mono" style={{ color: 'var(--muted)' }}>{formatMoney(stake)}</span>
+          </div>
+        </div>
+
+        {overBalance && <p className="mb-1 text-center text-[10px]" style={{ color: 'var(--red)' }}>Stake exceeds your demo balance.</p>}
+
+        <div className="flex flex-col gap-1.5">
+          <button type="button" disabled={disabled} onClick={() => onTrade('buy')} className="h-11 w-full rounded-lg text-[13px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: 'var(--green)' }}>
+            Buy
+          </button>
+          <button type="button" disabled={disabled} onClick={() => onTrade('sell')} className="h-11 w-full rounded-lg text-[13px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: 'var(--red)' }}>
+            Sell
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
