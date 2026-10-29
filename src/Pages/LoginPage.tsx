@@ -5,9 +5,10 @@ import AuthShell, {
   PrimaryButton,
 } from '../components/AuthShell';
 import Field, { inputStyle } from '../components/Field';
-import { login as apiLogin } from '../api/auth';
+import { login as apiLogin, passkeyLoginBegin, passkeyLoginFinish } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import { BRAND_NAME } from '../brand';
+import { authenticatePasskey, isWebAuthnSupported } from '../lib/webauthn';
 
 const LIVE_PAIRS = [
   { pair: 'EUR/USD', bid: 1.08412, ask: 1.08418, chg: 0.12 },
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   const from = (location.state as { from?: { pathname: string } } | null)
     ?.from?.pathname;
@@ -47,6 +49,27 @@ export default function LoginPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    if (!isWebAuthnSupported()) {
+      setError('Passkeys are not supported on this browser/device.');
+      return;
+    }
+    setError(null);
+    setPasskeyLoading(true);
+    try {
+      const options = await passkeyLoginBegin(email || undefined);
+      const credential = await authenticatePasskey(options);
+      const res = await passkeyLoginFinish(credential);
+      login(res.token, res.user);
+      navigate(from || '/', { replace: true });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Passkey sign in failed.';
+      setError(msg);
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -142,6 +165,40 @@ export default function LoginPage() {
               <PrimaryButton disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign in'}
               </PrimaryButton>
+              {isWebAuthnSupported() && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                    <div style={{ flex: 1, height: '1px', background: '#272C47' }} />
+                    <span style={{ fontSize: '12px', color: '#868CA8' }}>or</span>
+                    <div style={{ flex: 1, height: '1px', background: '#272C47' }} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePasskeyLogin}
+                    disabled={passkeyLoading}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      border: '1px solid #272C47',
+                      background: '#151829',
+                      color: '#EDEEF5',
+                      fontFamily: 'Inter',
+                      fontSize: '14px',
+                      cursor: passkeyLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path>
+                    </svg>
+                    {passkeyLoading ? 'Signing in with passkey…' : 'Sign in with Passkey / Fingerprint'}
+                  </button>
+                </>
+              )}
             </form>
           ) : (
             <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

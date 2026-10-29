@@ -9,7 +9,7 @@ import { BRAND_NAME } from '../brand';
 function mockReferrals(): ReferralsInfo {
   return {
     code: 'ABCD1234',
-    referralLink: 'https://localhost:3000/signup?ref=ABCD1234',
+    referralLink: 'https://okorofx.netlify.app/signup?ref=ABCD1234',
     rewardBalance: 25,
     referrerReward: 10,
     refereeReward: 5,

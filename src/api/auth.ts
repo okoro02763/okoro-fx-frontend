@@ -160,3 +160,30 @@ export function changePassword(
     body: { password },
   });
 }
+
+export function passkeyRegisterBegin(): Promise<any> {
+  return request<any>('/auth/passkey/register/begin', {
+    method: 'POST',
+  });
+}
+
+export function passkeyRegisterFinish(credential: any, deviceLabel?: string): Promise<MessageResponse> {
+  return request<MessageResponse>('/auth/passkey/register/finish', {
+    method: 'POST',
+    body: deviceLabel ? { ...credential, device_label: deviceLabel } : credential,
+  });
+}
+
+export function passkeyLoginBegin(email?: string): Promise<any> {
+  return request<any>('/auth/passkey/login/begin', {
+    method: 'POST',
+    body: email ? { email } : {},
+  });
+}
+
+export function passkeyLoginFinish(credential: any): Promise<LoginResponse> {
+  return request<LoginResponse>('/auth/passkey/login/finish', {
+    method: 'POST',
+    body: credential,
+  });
+}
