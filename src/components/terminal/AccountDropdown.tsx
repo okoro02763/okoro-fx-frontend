@@ -47,7 +47,11 @@ export default function AccountDropdown({
           </div>
           <div className="flex justify-between">
             <span>ID</span>
-            <span className="mono" style={{ color: 'var(--text)' }}>
+            <span
+              className="mono max-w-[180px] truncate"
+              title={user?.id ? String(user.id) : undefined}
+              style={{ color: 'var(--text)' }}
+            >
               {user?.id ?? 'KFX-000000'}
             </span>
           </div>

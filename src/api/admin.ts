@@ -36,7 +36,7 @@ export function changeUserStatus(
   token: string,
   userId: number | string,
   status: AdminUser['status']
-): Promise<{ id: number; status: string }> {
+): Promise<{ id: number | string; status: string }> {
   return request(`/admin/users/${userId}/status/`, {
     method: 'POST',
     body: { status },
@@ -49,7 +49,7 @@ export function changeUserRole(
   token: string,
   userId: number | string,
   role: AdminUser['role']
-): Promise<{ id: number; role: string }> {
+): Promise<{ id: number | string; role: string }> {
   return request(`/admin/users/${userId}/role/`, {
     method: 'POST',
     body: { role },
@@ -61,7 +61,7 @@ export function changeUserRole(
 export function recomputeFraud(
   token: string,
   userId: number | string
-): Promise<{ id: number; score: number; level: string; reasons: string[] }> {
+): Promise<{ id: number | string; score: number; level: string; reasons: string[] }> {
   return request(`/admin/users/${userId}/fraud/`, {
     method: 'POST',
     body: {},
@@ -76,7 +76,7 @@ export function getAuditLogs(token: string): Promise<AuditLog[]> {
 
 export interface AdminWithdrawal {
   id: number;
-  userId: number;
+  userId: number | string;
   name: string;
   email: string;
   amount: string;
@@ -114,7 +114,7 @@ export function reviewWithdrawal(
 
 export interface AdminKyc {
   id: number;
-  userId: number;
+  userId: number | string;
   name: string;
   email: string;
   docType: string;
