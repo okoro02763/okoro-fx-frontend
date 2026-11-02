@@ -1,4 +1,5 @@
 import { request } from './client';
+import { getDeviceId } from '../lib/device';
 
 // NOTE: The real Python API contract is not finalized. These shapes are
 // assumptions used as placeholders. Keep each function body isolated to a
@@ -42,7 +43,6 @@ export interface MessageResponse {
   message: string;
 }
 
-import { getDeviceId } from '../lib/device';
 
 // TODO: confirm against real backend
 export function login(
