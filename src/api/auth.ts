@@ -22,6 +22,16 @@ export interface LoginResponse {
   user: User;
 }
 
+/**
+ * Returned by /auth/login when the password was correct but this device has
+ * not been trusted yet. A code is emailed and must be posted to
+ * /auth/verify-device before a token is issued.
+ */
+export interface VerificationRequired {
+  status: 'verification_required';
+  email: string;
+}
+
 export interface SignupResponse {
   token?: string;
   user?: User;
@@ -35,7 +45,10 @@ export interface MessageResponse {
 import { getDeviceId } from '../lib/device';
 
 // TODO: confirm against real backend
-export function login(email: string, password: string): Promise<LoginResponse> {
+export function login(
+  email: string,
+  password: string
+): Promise<LoginResponse | VerificationRequired> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
     body: { email, password },

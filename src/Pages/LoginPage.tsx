@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AuthShell, {
   AuthLink,
   PrimaryButton,
 } from '../components/AuthShell';
 import Field, { inputStyle } from '../components/Field';
-import { login as apiLogin, passkeyLoginBegin, passkeyLoginFinish } from '../api/auth';
+import {
+  login as apiLogin,
+  passkeyLoginBegin,
+  passkeyLoginFinish,
+  resendVerification,
+  verifyDevice,
+} from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import { BRAND_NAME } from '../brand';
 import { authenticatePasskey, isWebAuthnSupported } from '../lib/webauthn';
@@ -31,6 +37,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [code, setCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const from = (location.state as { from?: { pathname: string } } | null)
     ?.from?.pathname;
@@ -41,6 +50,12 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await apiLogin(email, password);
+      if ('status' in res && res.status === 'verification_required') {
+        setCode('');
+        setResendCooldown(0);
+        setVerificationRequired(true);
+        return;
+      }
       login(res.token, res.user);
       navigate(from || '/', { replace: true });
     } catch (err) {
@@ -72,6 +87,42 @@ export default function LoginPage() {
       setPasskeyLoading(false);
     }
   };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await verifyDevice(email, code);
+      login(res.token, res.user);
+      navigate(from || '/', { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'That code did not work. Try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    setError(null);
+    try {
+      await resendVerification(email);
+      setResendCooldown(60);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Could not resend the code.'
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   return (
     <div className="fp-root box-border w-full overflow-x-hidden">
