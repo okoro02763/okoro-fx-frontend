@@ -6,6 +6,7 @@ import AuthShell, {
 } from '../components/AuthShell';
 import Field, { inputStyle } from '../components/Field';
 import {
+  isVerificationRequired,
   login as apiLogin,
   passkeyLoginBegin,
   passkeyLoginFinish,
@@ -50,7 +51,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await apiLogin(email, password);
-      if ('status' in res && res.status === 'verification_required') {
+      if (isVerificationRequired(res)) {
         setCode('');
         setResendCooldown(0);
         setVerificationRequired(true);

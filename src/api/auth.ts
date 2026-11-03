@@ -33,6 +33,16 @@ export interface VerificationRequired {
   email: string;
 }
 
+/**
+ * Discriminates the two possible /auth/login responses so callers can safely
+ * read `token`/`user` after handling the verification-required case.
+ */
+export function isVerificationRequired(
+  res: LoginResponse | VerificationRequired
+): res is VerificationRequired {
+  return 'status' in res && res.status === 'verification_required';
+}
+
 export interface SignupResponse {
   token?: string;
   user?: User;
