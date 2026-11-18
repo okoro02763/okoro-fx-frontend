@@ -39,7 +39,12 @@ const DevicesPage: React.FC = () => {
       const res = await passkeyRegisterFinish(credential, options?.state);
       setPasskeyMsg(res.message || 'Passkey registered successfully.');
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || 'Failed to register passkey.';
+      const apiMessage = e?.response?.data?.message;
+      const msg =
+        apiMessage ||
+        (e?.name === 'NotAllowedError'
+          ? 'The passkey prompt was cancelled or timed out. Make sure Windows Hello / Touch ID is set up, or choose "Use a phone" or "Security key" in the browser dialog.'
+          : e?.message || 'Failed to register passkey.');
       setPasskeyMsg(msg);
     } finally {
       setPasskeyLoading(false);

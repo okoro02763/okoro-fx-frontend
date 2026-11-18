@@ -29,7 +29,12 @@ function unwrapOptions(options: any): any {
 }
 
 export function isWebAuthnSupported(): boolean {
-  return typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
+  return (
+    typeof window !== 'undefined' &&
+    window.isSecureContext &&
+    !!window.PublicKeyCredential &&
+    !!navigator.credentials
+  );
 }
 
 export async function registerPasskey(options: any): Promise<any> {

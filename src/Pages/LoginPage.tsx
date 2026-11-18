@@ -82,7 +82,12 @@ export default function LoginPage() {
       login(res.token, res.user);
       navigate(from || '/', { replace: true });
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Passkey sign in failed.';
+      const apiMessage = err?.response?.data?.message;
+      const msg =
+        apiMessage ||
+        (err?.name === 'NotAllowedError'
+          ? 'The passkey prompt was cancelled or timed out. Make sure Windows Hello / Touch ID is set up, or choose "Use a phone" or "Security key" in the browser dialog. If you have not added a passkey yet, sign in with your password and add one under Devices.'
+          : err?.message || 'Passkey sign in failed.');
       setError(msg);
     } finally {
       setPasskeyLoading(false);
