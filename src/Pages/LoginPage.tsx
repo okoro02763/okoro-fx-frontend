@@ -254,6 +254,20 @@ export default function LoginPage() {
                     </svg>
                     {passkeyLoading ? 'Signing in with passkey…' : 'Sign in with Passkey / Fingerprint'}
                   </button>
+                  <p
+                    style={{
+                      fontFamily: 'Inter',
+                      fontSize: '11px',
+                      lineHeight: 1.5,
+                      color: '#868CA8',
+                      margin: 0,
+                      textAlign: 'center',
+                    }}
+                  >
+                    First time? Sign in with your password, then add a passkey under
+                    Devices. In the browser prompt you can pick Windows Hello / Touch
+                    ID, &quot;Use a phone&quot;, or a security key.
+                  </p>
                 </>
               )}
             </form>
