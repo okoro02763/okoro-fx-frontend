@@ -78,7 +78,7 @@ export default function LoginPage() {
     try {
       const options = await passkeyLoginBegin(email || undefined);
       const credential = await authenticatePasskey(options);
-      const res = await passkeyLoginFinish(credential);
+      const res = await passkeyLoginFinish({ ...credential, state: options?.state });
       login(res.token, res.user);
       navigate(from || '/', { replace: true });
     } catch (err: any) {

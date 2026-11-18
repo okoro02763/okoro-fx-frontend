@@ -19,12 +19,21 @@ function arrayBufferToBase64url(buffer: ArrayBuffer): string {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
+/**
+ * The backend returns the WebAuthn options either bare ({"challenge": ...})
+ * or wrapped in {"publicKey": {...}} depending on the webauthn library
+ * version. Accept both so a library upgrade cannot silently break biometrics.
+ */
+function unwrapOptions(options: any): any {
+  return options?.publicKey ?? options ?? {};
+}
+
 export function isWebAuthnSupported(): boolean {
   return typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
 }
 
 export async function registerPasskey(options: any): Promise<any> {
-  const publicKey: any = { ...options.publicKey };
+  const publicKey: any = { ...unwrapOptions(options) };
   publicKey.challenge = base64urlToArrayBuffer(publicKey.challenge);
   publicKey.user.id = base64urlToArrayBuffer(publicKey.user.id);
   if (publicKey.excludeCredentials) {
@@ -46,7 +55,7 @@ export async function registerPasskey(options: any): Promise<any> {
 }
 
 export async function authenticatePasskey(options: any): Promise<any> {
-  const publicKey: any = { ...options.publicKey };
+  const publicKey: any = { ...unwrapOptions(options) };
   publicKey.challenge = base64urlToArrayBuffer(publicKey.challenge);
   if (publicKey.allowCredentials) {
     publicKey.allowCredentials = publicKey.allowCredentials.map((cred: any) => ({

@@ -36,7 +36,7 @@ const DevicesPage: React.FC = () => {
     try {
       const options = await passkeyRegisterBegin();
       const credential = await registerPasskey(options);
-      const res = await passkeyRegisterFinish(credential);
+      const res = await passkeyRegisterFinish(credential, options?.state);
       setPasskeyMsg(res.message || 'Passkey registered successfully.');
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || 'Failed to register passkey.';

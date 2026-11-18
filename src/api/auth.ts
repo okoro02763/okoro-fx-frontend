@@ -1,5 +1,6 @@
 import { request } from './client';
 import { getDeviceId } from '../lib/device';
+import { getToken } from './token';
 
 // NOTE: The real Python API contract is not finalized. These shapes are
 // assumptions used as placeholders. Keep each function body isolated to a
@@ -187,13 +188,22 @@ export function changePassword(
 export function passkeyRegisterBegin(): Promise<any> {
   return request<any>('/auth/passkey/register/begin', {
     method: 'POST',
+    token: getToken(),
   });
 }
 
-export function passkeyRegisterFinish(credential: any, deviceLabel?: string): Promise<MessageResponse> {
+export function passkeyRegisterFinish(
+  credential: any,
+  state?: string,
+  deviceLabel?: string
+): Promise<MessageResponse> {
+  const body: any = { ...credential };
+  if (state) body.state = state;
+  if (deviceLabel) body.device_label = deviceLabel;
   return request<MessageResponse>('/auth/passkey/register/finish', {
     method: 'POST',
-    body: deviceLabel ? { ...credential, device_label: deviceLabel } : credential,
+    body,
+    token: getToken(),
   });
 }
 
